@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import warnings
+from typing import Union
 
 '''
 Heavy use of numpy for fast matrix and vector operations
@@ -8,20 +9,21 @@ Matplotlib for doing visualisations
 '''
 
 # Plots output pdf file
-outputPdf = 'generic_twin_swirl.pdf'
+outputPdf = '___.pdf'
 
 # Fluid parameters
 GAMMA = 1.4
 kin_visc = 1.81e-5
 
 # Uniform streamwise velocity
-axialVel = 5
+axialVel = 1
 
+# Vortex Types
+vortType = [1,2,3]
 # Vortex centers
-vortO = np.array([[-1.25,0],[1.25,0]])
-
+vortO = [[-2,0],[2,0],[0,0]]
 # Vortex strengths
-vortS = np.array([1,-1])
+vortS = [-5,5,16]
 
 # Mesh variables
 xSide = 10                 # Side length of grid in x direction
@@ -29,189 +31,194 @@ ySide = 10                 # Side length of grid in y direction
 xNumCells = 1000           # Num of cells in x direction
 yNumCells = 1000           # Num of cells in y direction
 
+'''
+For storing information about the vortices which have been defined for the domain
+Each vortex can be defined as a different type
+- Vortex types: 1 - Isentropic; 2 - Lamb-Oseen; 3 - Forced/Solid
+- Positive vortex strength is defined as anti-clockwise rotation
+'''
+class Vortices: 
+    # Object constructor accepts lists also for convenience, then later converts to numpy arrays
+    def __init__(self, types: Union[list, np.ndarray], centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray], radius: Union[list, np.ndarray] = [], clockwise: Union[list, np.ndarray] = []):
+        self.numVortices    = len(types)
+
+        # Make sure these are all numpy arrays not just lists
+        self.centres        = (centres      if isinstance(centres,np.ndarray)   else np.array(centres))       # Vortex centre
+        self.strengths      = (strengths    if isinstance(strengths,np.ndarray) else np.array(strengths))     # Vortex strength
+        self.types          = (types        if isinstance(types,np.ndarray)     else np.array(types))         # Vortex type - which mathematical model to use
+        self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex radius - can define a strong edge to the vortex, it has no effect on the flow outside this
+        self.clockwise      = (clockwise    if isinstance(clockwise,np.ndarray) else np.array(clockwise))     # Rotation direction - only needed for some types of vortices
+
+        self.vortNum        = 0             # For keeping track during iteration
+
+        # If some but not all defined are solid vortices, and radius has not been defined for all of them;
+        # create sparse matrices so that radius and clockwise values line up with correct vortex.
+        # So that you don't have to manually define dummy radii/directions for other vortex types
+        if (any(self.types == 3) and any(self.types != 3) and len(self.types) != len(self.radius)):
+            self.radius = np.zeros(self.strengths.shape)
+            self.clockwise = self.radius.copy()
+
+            forced = self.types == 3
+            
+            self.radius[forced]     = radius
+            self.clockwise[forced]  = clockwise
+
+    # Return data for next vortex as tuple, for iteration
+    def getNextVortex(self):
+        # Check if at end of vortex list
+        if (self.vortNum == self.numVortices):
+            raise IndexError(f"Index {self.vortNum} is out of bounds of vortex list with size {self.numVortices}")
+        else:
+            # Output correct tuple format depending on vortex types
+            if (any(self.types == 3)):
+                data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum], self.clockwise[self.vortNum])
+            else:
+                data = (self.centres[self.vortNum], self.strengths[self.vortNum])
+
+            self.vortNum += 1
+
+        return data 
 
 def main():
-
     # Setup coordinates grid
     coordGrids = makeGrid([xSide,ySide],[xNumCells,yNumCells])
 
-    # Calculate flow fields -- all have the same interface, probs could make a generic function instead of 3 separate ones
-    #velGrids, rho, p = isoVortices(vortO,vortS,coordGrids,axialVel)
-    #velGrids, rho, p = bulkSwirl(5, 18,coordGrids)
-    velGrids, rho, p = loVortices(vortO,vortS,coordGrids,axialVel)
-    
-    # Create swirled profiles
-    plotVelocity(coordGrids,velGrids)
+    # Initialise object to store data about multiple vortices of different types
+    VortexDefs = Vortices(vortType, vortO, vortS, [5], [-1])
 
-    # Create contour for density and pressure
-    plotThermos(coordGrids,rho,p)
+    # Place vortices in domain
+    velGrids, rho, p = defineVortices(VortexDefs, coordGrids)
 
-    # Calculate swirl angle of flow, for comparisons
-    swirlAngle = getSwirl(coordGrids, velGrids)
-
-    # Create contour of swirl angle
-    plotSwirl(coordGrids,swirlAngle)
-
-    # Save figures to pdf - this needs to be done before the plots are shown, does plt.show() clear the figures object??
-    saveFigsToPdf(outputPdf)
-
-    # Draw to screen
+    # Plot only vortex fields
+    plotVelocity(coordGrids, velGrids)
     plt.show()
+
+    # Plot and save fields
+    #plotAll(coordGrids, velGrids, rho, p, 'Big_test.pdf')
 
 '''
 Generic multiple vortices function
+Outputs velocity components, density and pressure as meshgrids
+vortDefs - Vortices object; coordGrids - meshgrid for coordinates;  axialVel - uniform axial velocity to be applied
 '''
-def defineVortices(centres, strengths, coordGrids, axialVel=1):
-    pass
+def defineVortices(vortDefs, coordGrids, axialVel=1):
     # Intialise 3D arrays to store multiple meshgrids - one for the component effect of each vortex
-
-    # Loop through given vortices and calculate their effect on each cell of the grid
-
-    '''
-    Some method of specifying the effect of this vortex on each cell of the grid
-    Probably here we would make it modular and have the option of using different vortex types? (Lamb-Oseen, isentropic, forced)
-    '''
-
-    # Collate effects of each vortex - this probably needs to be modular too, different for each vortex type?
-
-    # Add uniform axial velocity field? Or have some other equation for it
-
-    # Stack velocity grids, and do other necessary cleanup before output
-
-
-'''
-For multiple simple isentropic vortices
-- with uniform streamwise velocity
-- edge of grid currently not a bounding wall, ie vortex is acting like it's in an infinite domain and grid is just sample of this
-'''
-def isoVortices(vortCentres, vortStrengths, coordGrids, axialVel=1):
-    # Initialise 3D arrays to store multiple meshgrids
-    tComps = np.zeros(np.append(coordGrids[:,:,0].shape, vortStrengths.size))
+    tComps = np.zeros(np.append(coordGrids[:,:,0].shape, vortDefs.strengths.shape[0]))    # Is temperature effect generic? Haven't implemented general method for doing pressure and density effects
     uComps = tComps.copy()
     vComps = tComps.copy()
 
-    # Loop through specified vortices and calculate their effect on each cell of the grid
-    for i in range(vortStrengths.size):
-        # Set radius of each cell from centre of vortex
-        r = np.sqrt(np.square(coordGrids[:,:,0]-vortCentres[i,0]) + np.square(coordGrids[:,:,1] - vortCentres[i,1]))
+    # Dictionary mapping for functions - will be faster then multiple if/else statements - also more readable code
+    vortexType = {1:isoVortex, 2:loVortex, 3:solidVortex}
 
-        # Dummy parameter for taking into account temperature effect of multiple vortices on each cell (and consequently the rho and pi)
-        tComps[:,:,i] = vortStrengths[i]**2 * np.exp(1-np.square(r))
+    # Loop through given vortices and calculate their effect on each cell of the grid
+    for i in range(vortDefs.strengths.shape[0]):
+        # Get function for this vortex type
+        func = vortexType.get(vortDefs.types[i])
+        # Call vortex function to fill component arrays - with data for a single vortex
+        tComps[:,:,i], uComps[:,:,i], vComps[:,:,i] = func(vortDefs.getNextVortex(), coordGrids)
 
-        # Velocity components due to this vortex
-        uComps[:,:,i] = (vortStrengths[i]/(2*np.pi)) * np.multiply(np.exp(0.5*(1-np.square(r))), vortCentres[i,1]-coordGrids[:,:,1])
-        vComps[:,:,i] = (vortStrengths[i]/(2*np.pi)) * np.multiply(np.exp(0.5*(1-np.square(r))), coordGrids[:,:,0]-vortCentres[i,0])
-
-    # Collate effect of all vortices on temp
-    T = 1 - (((GAMMA-1)/(8*GAMMA*np.pi**2)) * np.sum(tComps,axis=2))
-    # Check if any of T is negative - unrealistic, suggests that one of the betas specified for the vortices is too high
-    if np.any(T < 0):
-        warnings.warn('Vortex strength values specified may be too high resulting in negative temperatures, pressure and density fields produced may be invalid', RuntimeWarning)
-    
-    # Now calc density and pressure using temperature
-    rho = np.power(T, 1/(GAMMA-1))
-    p = np.multiply(rho,T)
-    
-    # Sum velocity effects of each vortex on the velocities
+    # Collate effects of each vortex
+    T = 1 - np.sum(tComps,axis=2)
     U = np.sum(uComps,axis=2)
     V = np.sum(vComps,axis=2)
+    rho = np.power(T, 1/(GAMMA-1)) # Simple isentropic relations for rho and p
+    p = rho*T
 
-    # Apply uniform axial velocity profile - is this reasonable??
-    W = np.ones(U.shape)*axialVel
+    # Add uniform axial velocity field? Or have some other equation for it
+    W = np.ones(U.shape)
 
-    # Stack velocity vector components grids, similar to coords
+    # Stack velocity grids, and do other necessary cleanup before output
     velGrids = np.dstack([U,V,W])
 
-    return velGrids,rho,p
+    return velGrids, rho, p
 
 '''
-For Bulk swirl profile
+Function for outputting the effect of a simple isentropic vortex on the domain
+- edge of grid currently not a bounding wall, ie vortex is acting like it's in an infinite domain and grid is just a smple of this
+vortData - tuple produced by getNextVortex() function of Vortices class
+'''
+def isoVortex(vortData,coordGrids):
+    # Get radius of each cell from centre of this vortex
+    r = np.sqrt((coordGrids[:,:,0]-vortData[0][0])**2 + (coordGrids[:,:,1] - vortData[0][1])**2)
+
+    # Take into account temperature effect of this vortex - and consequently, its effect on pressure and density
+    tComp = (GAMMA-1) * vortData[1]**2 * np.exp(1-r**2) / (8*GAMMA*np.pi**2)
+
+    # Velocity components due to this vortex
+    uComp = (vortData[1]/(2*np.pi)) * np.exp(0.5*(1-r**2)) * (coordGrids[:,:,1] - vortData[0][1])
+    vComp = (vortData[1]/(2*np.pi)) * np.exp(0.5*(1-r**2)) * (vortData[0][0] - coordGrids[:,:,0])
+
+    return tComp, uComp, vComp
+
+'''
+Function for outputting the effect of a Lamb-Oseen vortex
+- using adapted equations from StreamVane paper, generalised for an arbitrary number of vortices at arbitrary positions
+------- Equations from StreamVane paper has slight error for v velocity component, correct here
+- Generic twin swirl profile can be created with by placing two vortices with parameters from paper
+- currently has dummy effect on temp
+
+vortData - tuple produced by getNextVortex() function of Vortices class
+'''
+def loVortex(vortData,coordGrids):
+    # Some parameter - a0=0.1 apparently creates maximum swirl angle of 16deg when other parameters same as paper
+    a0 = 0.1
+
+    # Get radius of each cell from centre of this vortex
+    r = np.sqrt((coordGrids[:,:,0]-vortData[0][0])**2 + (coordGrids[:,:,1] - vortData[0][1])**2)
+    rsquare = r**2
+
+    # Get omega (actual vortex strength?)
+    omega = vortData[1]/(np.pi * a0**2)
+
+    # Velocity components due to this vortex
+    uComp = 0.5 * (a0**2 * omega * (coordGrids[:,:,1] - vortData[0][1]) / r**2) * (1 - np.exp(-r**2/a0**2))
+    vComp = 0.5 * (a0**2 * omega * (vortData[0][0] - coordGrids[:,:,0]) / r**2) * (1 - np.exp(-r**2/a0**2))
+
+    # Dummy temp grid, no temperature effect currently
+    tComp = np.zeros(uComp.shape)
+
+    return tComp, uComp, vComp
+
+'''
+Function for outputting the effect of a forced vortex
 - currently has dummy field for both density and pressure, only velocity vector fields at the moment
 - linear increase in swirl angle from center to outer edge
 - swirl angle defined as angle between resultant vector and axial velocity component (cause by tangential component velocity)
 - solid/forced vortex - not realistic; ie instantaneously created vortex, no effect on cells outside it's radius
 - also assumes no radial velocity
+
+vortData - tuple produced by getNextVortex() function of Vortices class
 '''
-def bulkSwirl(vortR, maxSwirlAngleDegrees, coordGrids, axialVel=1, clockwise = False):
-    # Convert to radians
-    maxSwirlAngle = np.deg2rad(maxSwirlAngleDegrees)
+def solidVortex(vortData, coordGrids):
+    # Get swirl angle and convert it to radians
+    maxSwirlAngle = np.deg2rad(vortData[1])
 
     # Get axial coordinates
-    r = np.sqrt(np.square(coordGrids[:,:,0]) + np.square(coordGrids[:,:,1]))
+    r = np.sqrt((coordGrids[:,:,0]-vortData[0][0])**2 + (coordGrids[:,:,1] - vortData[0][1])**2)
     theta = np.arctan(coordGrids[:,:,1]/coordGrids[:,:,0])
-    
-    # Normalise radius for straightforward swirl angle calculation and set cells outside vortex size to 0
-    rNorm = r/vortR
+
+    # Normalise radius for straightforward angle calculation and set cells outside vortex size to 0
+    rNorm = r/vortData[2]
     rNorm[(rNorm > 1)] = 0
 
-    # Get swirl angle
+    # Get swirl angle distribution
     swirlAngles = maxSwirlAngle*rNorm
 
     # Transform so swirl is coherent (either clockwise or anticlockwise) - without this, the swirl profile produced is mirrored about the y axis
-    swirlAngles[(coordGrids[:,:,0] * (-1 if clockwise else 1) < 0)] = swirlAngles[(coordGrids[:,:,0] * (-1 if clockwise else 1) < 0)] * -1
+    swirlAngles[(coordGrids[:,:,0] * -vortData[3] < 0)] = swirlAngles[(coordGrids[:,:,0] * -vortData[3] < 0)] * -1
 
     # Get tangential velocity at each cell
     tangentVel = axialVel*np.tan(swirlAngles)
 
     # Get velocity vector components, in-plane cartesian (assume no radial velocity)
-    U = -r*tangentVel*np.sin(theta)
-    V =  r*tangentVel*np.cos(theta)
-    # Apply uniform axial vel distribution
-    W = np.ones(np.shape(U))*axialVel
+    uComp = -r*tangentVel*np.sin(theta)
+    vComp =  r*tangentVel*np.cos(theta)
 
-    # Stack velocity vector components grids, similar to coords
-    velGrids = np.dstack([U,V,W])
+    # Dummy temp grid, no temperature effect modelled currently
+    tComp = np.zeros(uComp.shape)
 
-    # Create dummy fields for density and pressure
-    rho = np.ones(np.shape(U))
-    p = np.ones(np.shape(U))
+    return tComp, uComp, vComp
 
-    return velGrids,rho,p
-
-'''
-For multiple Lamb-Oseen vortices
-- using adapted equations from StreamVane paper, generalised for an arbitrary number of vortices at arbitrary positions
-------- Equations from StreamVane paper has slight error for v velocity component, correct here
-- Generic twin swirl profile can be created with by placing two vortices with parameters from paper
-- currently has dummy grids for the density and pressure fields
-'''
-def loVortices(vortCentres, vortStrengths, coordGrids, axialVel=1):
-    # Some parameter - 0.1 creates maximum swirl angle of 16deg when other parameters same as paper
-    a0 = 0.1
-    a0square = a0**2
-
-    # Initialise 3D arrays to store multiple meshgrids (one for each vortex)
-    uComps = np.zeros(np.append(coordGrids[:,:,0].shape, vortStrengths.size))
-    vComps = uComps.copy()
-
-    # Loop through given vortices and calculate their effect on each cell of the grid
-    for i in range(vortStrengths.size):
-        # Get radius of each cell from centre of this vortex
-        r = np.sqrt(np.square(coordGrids[:,:,0]-vortCentres[i,0]) + np.square(coordGrids[:,:,1] - vortCentres[i,1]))
-
-        # Get omega (actual vortex strength?)
-        omega = vortStrengths[i]/(np.pi * a0square)
-
-        # Velocity components due to this vortex
-        uComps[:,:,i] = 0.5 * (a0square * omega * (coordGrids[:,:,1] - vortCentres[i,1]) / np.square(r)) * (1 - np.exp(-np.square(r)/a0square))
-        vComps[:,:,i] = 0.5 * (a0square * omega * (vortCentres[i,0] - coordGrids[:,:,0]) / np.square(r)) * (1 - np.exp(-np.square(r)/a0square))
-
-    # Sum velocity effects of each vortex on the velocities
-    U = np.sum(uComps,axis=2)
-    V = np.sum(vComps,axis=2)
-
-    # Apply uniform axial velocity profiles
-    W = np.ones(U.shape)*axialVel
-    
-    # Stack velocity vector components grids, similar to coords
-    velGrids = np.dstack([U,V,W])
-
-    # Create dummy fields for density and pressure
-    rho = np.ones(np.shape(U))
-    p = np.ones(np.shape(U))
-
-    return velGrids,rho,p
-    
 '''
 Make meshgrids to store coordinate system; as a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
 '''
@@ -230,6 +237,20 @@ def makeGrid(sideLengths=[10,10],numCells=[100,100]):
     coordGrids = np.dstack([X,Y])
 
     return coordGrids
+
+'''
+Utility for showing and saving all plots
+'''
+def plotAll(coordGrids, velGrids, rho, p, pdfName):
+    plotVelocity(coordGrids, velGrids)
+
+    plotThermos(coordGrids,rho,p)
+
+    plotSwirl(coordGrids, getSwirl(coordGrids,velGrids))
+
+    saveFigsToPdf(pdfName)
+
+    plt.show()
 
 '''
 Create plots for the swirling velocity profile as a quiver plot and a streamlines plot
@@ -284,7 +305,7 @@ def getSwirl(coordGrids, velGrids):
     return swirlAngle
 
 '''
-Calculate Root Mean Square error between two swirl angle profiles, for comparisons - not tested yet
+Calculate Root Mean Square error between two swirl angle profiles, for comparisons
 '''
 def getError(swirlAngle, desiredSwirl):
     RMSE = np.sqrt((1/np.size(swirlAngle))*np.sum((swirlAngle-desiredSwirl)**2))
