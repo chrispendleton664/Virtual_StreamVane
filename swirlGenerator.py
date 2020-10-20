@@ -8,28 +8,9 @@ Heavy use of numpy for fast matrix and vector operations
 Matplotlib for doing visualisations
 '''
 
-# Plots output pdf file
-outputPdf = '___.pdf'
-
 # Fluid parameters
 GAMMA = 1.4
 kin_visc = 1.81e-5
-
-# Uniform streamwise velocity
-axialVel = 1
-
-# Vortex Types
-vortType = [1,2,3]
-# Vortex centers
-vortO = [[-2,0],[2,0],[0,0]]
-# Vortex strengths
-vortS = [-5,5,16]
-
-# Mesh variables
-xSide = 10                 # Side length of grid in x direction
-ySide = 10                 # Side length of grid in y direction
-xNumCells = 1000           # Num of cells in x direction
-yNumCells = 1000           # Num of cells in y direction
 
 '''
 For storing information about the vortices which have been defined for the domain
@@ -39,7 +20,9 @@ Each vortex can be defined as a different type
 '''
 class Vortices: 
     # Object constructor accepts lists also for convenience, then later converts to numpy arrays
-    def __init__(self, types: Union[list, np.ndarray], centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray], radius: Union[list, np.ndarray] = [], clockwise: Union[list, np.ndarray] = []):
+    def __init__(self, types: Union[list, np.ndarray], centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray],
+                       radius: Union[list, np.ndarray] = [], clockwise: Union[list, np.ndarray] = [], axialVel: Union[list, np.ndarray] = []):
+
         self.numVortices    = len(types)
 
         # Make sure these are all numpy arrays not just lists
@@ -48,20 +31,27 @@ class Vortices:
         self.types          = (types        if isinstance(types,np.ndarray)     else np.array(types))         # Vortex type - which mathematical model to use
         self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex radius - can define a strong edge to the vortex, it has no effect on the flow outside this
         self.clockwise      = (clockwise    if isinstance(clockwise,np.ndarray) else np.array(clockwise))     # Rotation direction - only needed for some types of vortices
+        self.axialVel       = (axialVel     if isinstance(axialVel,np.ndarray)  else np.array(axialVel))      # Uniform axial velcoity - only needed for forced swirl type
 
         self.vortNum        = 0             # For keeping track during iteration
+
+        # If there are forced vortices defined, make sure necessary arguements are defined
+        if (any(self.types == 3) and (self.radius.size == 0 or self.clockwise.size == 0 or self.axialVel.size == 0)):
+            raise RuntimeError("Forced vortex type defined but radius, direction or axial velocity arguement is mixing")
 
         # If some but not all defined are solid vortices, and radius has not been defined for all of them;
         # create sparse matrices so that radius and clockwise values line up with correct vortex.
         # So that you don't have to manually define dummy radii/directions for other vortex types
         if (any(self.types == 3) and any(self.types != 3) and len(self.types) != len(self.radius)):
-            self.radius = np.zeros(self.strengths.shape)
-            self.clockwise = self.radius.copy()
+            self.radius     = np.zeros(self.strengths.shape)
+            self.clockwise  = self.radius.copy()
+            self.axialVel   = self.radius.copy()
 
             forced = self.types == 3
             
             self.radius[forced]     = radius
             self.clockwise[forced]  = clockwise
+            self.axialVel[forced]   = axialVel
 
     # Return data for next vortex as tuple, for iteration
     def getNextVortex(self):
@@ -71,7 +61,7 @@ class Vortices:
         else:
             # Output correct tuple format depending on vortex types
             if (any(self.types == 3)):
-                data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum], self.clockwise[self.vortNum])
+                data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum], self.clockwise[self.vortNum], self.axialVel[self.vortNum])
             else:
                 data = (self.centres[self.vortNum], self.strengths[self.vortNum])
 
@@ -80,21 +70,19 @@ class Vortices:
         return data 
 
 def main():
+    print("Generating generic bulk twin swirl profile (isentropic vortices)...")
+
     # Setup coordinates grid
-    coordGrids = makeGrid([xSide,ySide],[xNumCells,yNumCells])
+    coordGrids = makeGrid([10,10],[100,100])
 
     # Initialise object to store data about multiple vortices of different types
-    VortexDefs = Vortices(vortType, vortO, vortS, [5], [-1])
+    VortexDefs = Vortices([1,1], [[-2,0],[2,0]], [-5,5])
 
     # Place vortices in domain
-    velGrids, rho, p = defineVortices(VortexDefs, coordGrids)
-
-    # Plot only vortex fields
-    plotVelocity(coordGrids, velGrids)
-    plt.show()
+    velGrids, rho, p = defineVortices(VortexDefs, coordGrids, 5)
 
     # Plot and save fields
-    #plotAll(coordGrids, velGrids, rho, p, 'Big_test.pdf')
+    plotAll(coordGrids, velGrids, rho, p)
 
 '''
 Generic multiple vortices function
@@ -125,7 +113,7 @@ def defineVortices(vortDefs, coordGrids, axialVel=1):
     p = rho*T
 
     # Add uniform axial velocity field? Or have some other equation for it
-    W = np.ones(U.shape)
+    W = np.ones(U.shape)*axialVel
 
     # Stack velocity grids, and do other necessary cleanup before output
     velGrids = np.dstack([U,V,W])
@@ -208,7 +196,7 @@ def solidVortex(vortData, coordGrids):
     swirlAngles[(coordGrids[:,:,0] * -vortData[3] < 0)] = swirlAngles[(coordGrids[:,:,0] * -vortData[3] < 0)] * -1
 
     # Get tangential velocity at each cell
-    tangentVel = axialVel*np.tan(swirlAngles)
+    tangentVel = vortData[4]*np.tan(swirlAngles)
 
     # Get velocity vector components, in-plane cartesian (assume no radial velocity)
     uComp = -r*tangentVel*np.sin(theta)
@@ -241,14 +229,15 @@ def makeGrid(sideLengths=[10,10],numCells=[100,100]):
 '''
 Utility for showing and saving all plots
 '''
-def plotAll(coordGrids, velGrids, rho, p, pdfName):
+def plotAll(coordGrids, velGrids, rho, p, pdfName=None):
     plotVelocity(coordGrids, velGrids)
 
     plotThermos(coordGrids,rho,p)
 
     plotSwirl(coordGrids, getSwirl(coordGrids,velGrids))
 
-    saveFigsToPdf(pdfName)
+    if (pdfName != None):
+        saveFigsToPdf(pdfName)
 
     plt.show()
 
