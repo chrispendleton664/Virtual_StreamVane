@@ -11,6 +11,7 @@ Matplotlib for doing visualisations
 # Fluid parameters
 GAMMA = 1.4
 kin_visc = 1.81e-5
+density = 1.225         # ISA sea level condition - for incompressible
 
 '''
 For storing information about the vortices which have been defined for the domain
@@ -87,9 +88,9 @@ def main():
 '''
 Generic multiple vortices function
 Outputs velocity components, density and pressure as meshgrids
-vortDefs - Vortices object; coordGrids - meshgrid for coordinates;  axialVel - uniform axial velocity to be applied
+vortDefs - Vortices object; coordGrids - meshgrid for coordinates;  axialVel - uniform axial velocity to be applied; density - if defined, assume that flow is incompressible
 '''
-def defineVortices(vortDefs, coordGrids, axialVel=1):
+def defineVortices(vortDefs, coordGrids, axialVel=1, density = None):
     # Intialise 3D arrays to store multiple meshgrids - one for the component effect of each vortex
     tComps = np.zeros(np.append(coordGrids[:,:,0].shape, vortDefs.strengths.shape[0]))    # Is temperature effect generic? Haven't implemented general method for doing pressure and density effects
     uComps = tComps.copy()
@@ -326,6 +327,29 @@ def saveFigsToPdf(outputFile):
         for fig in range(1, plt.gcf().number+1):
             pdf.savefig(fig)
 
+'''
+Wrapper function for saving the flow field - so that calling script does not need to import numpy just for this
+'''
+def saveFlowField(outputFile, velGrids, rho, p):
+    np.savez(outputFile, velGrids=velGrids, rho=rho, pressure=p)
+
+'''
+Unpacks zipped archive file created by saveFlowField() and returns the numpy arrays in the familiar format
+'''
+def loadFlowField(file):
+    # Extract file into an npz file
+    npzfile = np.load(file)
+
+    # Check if correct format
+    if ('velGrids' in npzfile and 'rho' in npzfile and 'pressure' in npzfile):
+        velGrids    = npzfile['velGrids']
+        rho         = npzfile['rho']
+        p           = npzfile['pressure']
+
+    else:
+        raise RuntimeError('File format/contents invalid - make sure this file was created by swirlGenerator.saveFigsToPdf')
+
+    return velGrids, rho, p
 
 if __name__ == '__main__':
     main()
