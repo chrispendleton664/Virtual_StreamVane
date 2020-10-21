@@ -236,10 +236,14 @@ def plotAll(coordGrids, velGrids, rho, p, pdfName=None):
 
     plotSwirl(coordGrids, getSwirl(coordGrids,velGrids))
 
+    # If saving, don't show plots
     if (pdfName != None):
         saveFigsToPdf(pdfName)
+    else:
+        plt.show()
 
-    plt.show()
+    # Clear figures when done
+    plt.close('all')
 
 '''
 Create plots for the swirling velocity profile as a quiver plot and a streamlines plot
