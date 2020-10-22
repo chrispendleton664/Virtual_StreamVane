@@ -16,20 +16,21 @@ density = 1.225         # ISA sea level condition - for incompressible
 '''
 For storing information about the vortices which have been defined for the domain
 Each vortex can be defined as a different type
-- Vortex types: 1 - Isentropic; 2 - Lamb-Oseen; 3 - Forced/Solid
+- Vortex models: 1 - Isentropic; 2 - Lamb-Oseen; 3 - Forced/Solid
 - Positive vortex strength is defined as anti-clockwise rotation
 '''
 class Vortices: 
     # Object constructor accepts lists also for convenience, then later converts to numpy arrays
-    def __init__(self, types: Union[list, np.ndarray], centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray],
+    def __init__(self, model: int, centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray],
                        radius: Union[list, np.ndarray] = [], clockwise: Union[list, np.ndarray] = [], axialVel: Union[list, np.ndarray] = []):
 
-        self.numVortices    = len(types)
+        self.numVortices    = len(strengths)
+
+        self.model          = model         # Vortex type - which mathematical model to use for all the vortices in the domain
 
         # Make sure these are all numpy arrays not just lists
         self.centres        = (centres      if isinstance(centres,np.ndarray)   else np.array(centres))       # Vortex centre
         self.strengths      = (strengths    if isinstance(strengths,np.ndarray) else np.array(strengths))     # Vortex strength
-        self.types          = (types        if isinstance(types,np.ndarray)     else np.array(types))         # Vortex type - which mathematical model to use
         self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex radius - can define a strong edge to the vortex, it has no effect on the flow outside this
         self.clockwise      = (clockwise    if isinstance(clockwise,np.ndarray) else np.array(clockwise))     # Rotation direction - only needed for some types of vortices
         self.axialVel       = (axialVel     if isinstance(axialVel,np.ndarray)  else np.array(axialVel))      # Uniform axial velcoity - only needed for forced swirl type
@@ -37,22 +38,8 @@ class Vortices:
         self.vortNum        = 0             # For keeping track during iteration
 
         # If there are forced vortices defined, make sure necessary arguements are defined
-        if (any(self.types == 3) and (self.radius.size == 0 or self.clockwise.size == 0 or self.axialVel.size == 0)):
+        if (self.model == 3 and (self.radius.size == 0 or self.clockwise.size == 0 or self.axialVel.size == 0)):
             raise RuntimeError("Forced vortex type defined but radius, direction or axial velocity arguement is mixing")
-
-        # If some but not all defined are solid vortices, and radius has not been defined for all of them;
-        # create sparse matrices so that radius and clockwise values line up with correct vortex.
-        # So that you don't have to manually define dummy radii/directions for other vortex types
-        if (any(self.types == 3) and any(self.types != 3) and len(self.types) != len(self.radius)):
-            self.radius     = np.zeros(self.strengths.shape)
-            self.clockwise  = self.radius.copy()
-            self.axialVel   = self.radius.copy()
-
-            forced = self.types == 3
-            
-            self.radius[forced]     = radius
-            self.clockwise[forced]  = clockwise
-            self.axialVel[forced]   = axialVel
 
     # Return data for next vortex as tuple, for iteration
     def getNextVortex(self):
@@ -60,8 +47,8 @@ class Vortices:
         if (self.vortNum == self.numVortices):
             raise IndexError(f"Index {self.vortNum} is out of bounds of vortex list with size {self.numVortices}")
         else:
-            # Output correct tuple format depending on vortex types
-            if (any(self.types == 3)):
+            # Output correct tuple format depending on vortex type
+            if (self.model == 3):
                 data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum], self.clockwise[self.vortNum], self.axialVel[self.vortNum])
             else:
                 data = (self.centres[self.vortNum], self.strengths[self.vortNum])
@@ -76,8 +63,8 @@ def main():
     # Setup coordinates grid
     coordGrids = makeGrid([10,10],[100,100])
 
-    # Initialise object to store data about multiple vortices of different types
-    VortexDefs = Vortices([1,1], [[-2,0],[2,0]], [-5,5])
+    # Initialise object to store data about multiple vortices
+    VortexDefs = Vortices(1, [[-2,0],[2,0]], [-5,5])
 
     # Place vortices in domain
     velGrids, rho, p = defineVortices(VortexDefs, coordGrids, 5)
@@ -102,7 +89,7 @@ def defineVortices(vortDefs, coordGrids, axialVel=1, density = None):
     # Loop through given vortices and calculate their effect on each cell of the grid
     for i in range(vortDefs.strengths.shape[0]):
         # Get function for this vortex type
-        func = vortexType.get(vortDefs.types[i])
+        func = vortexType.get(vortDefs.model)
         # Call vortex function to fill component arrays - with data for a single vortex
         tComps[:,:,i], uComps[:,:,i], vComps[:,:,i] = func(vortDefs.getNextVortex(), coordGrids)
 
@@ -263,7 +250,7 @@ def plotVelocity(coordGrids, velGrids):
     plt.gca().set_aspect('equal', adjustable='box')
     plt.title("Quiver")
     skip = (slice(None,None,quiverEvery), slice(None,None,quiverEvery))       # Prune output so quiver plot is not so dense
-    plt.quiver(coordGrids[:,:,0][skip], coordGrids[:,:,1][skip], velGrids[:,:,0][skip], velGrids[:,:,1][skip], scale = 5)
+    plt.quiver(coordGrids[:,:,0][skip], coordGrids[:,:,1][skip], velGrids[:,:,0][skip], velGrids[:,:,1][skip])
 
     # Make streamlines plot
     plt.figure()
