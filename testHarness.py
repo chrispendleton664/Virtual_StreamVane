@@ -21,13 +21,13 @@ randomSwirl     = sg.Vortices(1, [[2,0],[3,3],[-3,-1]], [-5,2,3])
 
 # Stack objects into array for iteration
 swirlDefs = [bulkSwirl, twinSwirlLO, twinSwirlIso, randomSwirl]
-swirlFiles = ["__BulkSwirl.pdf", "__LambOseen_TwinSwirl.pdf", "__Isentropic_TwinSwirl.pdf", "__Random_Mixed_Swirl.pdf"]
+swirlFiles = ["iBulkSwirl.pdf", "iLO_TwinSwirl.pdf", "iIso_TwinSwirl.pdf", "iRandomSwirl.pdf"]
 
 # Loop through swirl description
 for i in range(len(swirlDefs)):
     # Calculate domain
     print(f"Calculating {swirlFiles[i][0:-4]}...")
-    velGrids, rho, p = sg.defineVortices(swirlDefs[i], coordGrids, axialVel)
+    velGrids = sg.defineVortices(swirlDefs[i], coordGrids, axialVel)
 
     # Save fields to pdf
-    sg.plotAll(coordGrids, velGrids, rho, p, f"flow_fields/{swirlFiles[i]}")
+    sg.plotAll(coordGrids, velGrids, f"flow_fields/{swirlFiles[i]}")
