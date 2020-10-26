@@ -10,8 +10,11 @@ xNumCells = 1000           # Num of cells in x direction
 yNumCells = 1000           # Num of cells in y direction
 
 
-# Setup coordinates grid
-coordGrids = sg.makeGrid([xSide,ySide],[xNumCells,yNumCells])
+# Initialise flow fields
+field1 = sg.FlowField([xSide,ySide],[xNumCells,yNumCells])
+field2 = field1.copy()
+field3 = field1.copy()
+field4 = field1.copy()
 
 # Initialise domain configurations
 bulkSwirl       = sg.Vortices(3, [[0,0]], [18], [5], [-1], [axialVel])
@@ -20,14 +23,15 @@ twinSwirlIso    = sg.Vortices(1, [[-1.25,0],[1.25,0]], [5,-5])
 randomSwirl     = sg.Vortices(1, [[2,0],[3,3],[-3,-1]], [-5,2,3])
 
 # Stack objects into array for iteration
+flowFields = [field1,field2,field3,field4]
 swirlDefs = [bulkSwirl, twinSwirlLO, twinSwirlIso, randomSwirl]
 swirlFiles = ["iBulkSwirl.pdf", "iLO_TwinSwirl.pdf", "iIso_TwinSwirl.pdf", "iRandomSwirl.pdf"]
 
 # Loop through swirl description
-for i in range(len(swirlDefs)):
+for i in range(len(flowFields)):
     # Calculate domain
     print(f"Calculating {swirlFiles[i][0:-4]}...")
-    velGrids = sg.defineVortices(swirlDefs[i], coordGrids, axialVel)
+    velGrids = flowFields[i].defineVortices(swirlDefs[i], axialVel=axialVel)
 
     # Save fields to pdf
-    sg.plotAll(coordGrids, velGrids, f"flow_fields/{swirlFiles[i]}")
+    flowFields[i].plotAll(f"flow_fields/{swirlFiles[i]}")
