@@ -65,6 +65,7 @@ class FlowField:
         # Flow field descretisation descriptions
         self.sideLengths = sideLengths
         self.numCells = numCells
+        self.cellSides = np.divide(self.sideLengths,self.numCells)
 
         # Create coordinate grids of flow field mesh cells
         self.coordGrids = self.makeGrid()
@@ -79,12 +80,9 @@ class FlowField:
 
     # Make meshgrids to store coordinate system; as a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
     def makeGrid(self):
-        # Get the resulting side length of the grid cells
-        cellSides = np.divide(self.sideLengths,self.numCells)
-
         # Create coordinate system from mesh info
-        x = np.linspace(-self.sideLengths[0]/2+cellSides[0]/2, self.sideLengths[0]/2-cellSides[0]/2, self.numCells[0])
-        y = np.linspace(-self.sideLengths[1]/2+cellSides[1]/2, self.sideLengths[1]/2-cellSides[1]/2, self.numCells[1])
+        x = np.linspace(-self.sideLengths[0]/2+self.cellSides[0]/2, self.sideLengths[0]/2-self.cellSides[0]/2, self.numCells[0])
+        y = np.linspace(-self.sideLengths[1]/2+self.cellSides[1]/2, self.sideLengths[1]/2-self.cellSides[1]/2, self.numCells[1])
 
         # Create meshgrid to store coordinate grid - useful in this form for plotting later and reduces the amount of for loops since we can use numpy matrix operations instead
         X, Y = np.meshgrid(x,y, indexing='xy')        # Use familiar ij matrix indexing
