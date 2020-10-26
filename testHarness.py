@@ -31,7 +31,7 @@ swirlFiles = ["iBulkSwirl.pdf", "iLO_TwinSwirl.pdf", "iIso_TwinSwirl.pdf", "iRan
 for i in range(len(flowFields)):
     # Calculate domain
     print(f"Calculating {swirlFiles[i][0:-4]}...")
-    velGrids = flowFields[i].defineVortices(swirlDefs[i], axialVel=axialVel)
+    flowFields[i].defineVortices(swirlDefs[i], axialVel=axialVel)
 
     # Save fields to pdf
     flowFields[i].plotAll(f"flow_fields/{swirlFiles[i]}")
