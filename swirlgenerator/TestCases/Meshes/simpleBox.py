@@ -21,9 +21,9 @@ WIDTH   = 1
 LENGTH  = 5
 
 # Mesh definition
-NUM_CELLS_HEIGHT    = 10
-NUM_CELLS_WIDTH     = 10
-NUM_CELLS_LENGTH    = 50
+NUM_CELLS_HEIGHT    = 100
+NUM_CELLS_WIDTH     = 100
+NUM_CELLS_LENGTH    = 500
 
 '''
 GEOMETRY DEFINITION
@@ -113,7 +113,7 @@ gmsh.model.mesh.generate(3)
 gmsh.write(outputFile)
 
 # Visualise model in gui
-if '-nopopup' not in sys.argv:
+if '-showmesh' in sys.argv:
     gmsh.fltk.run()
 
 gmsh.finalize()
