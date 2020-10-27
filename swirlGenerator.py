@@ -79,10 +79,15 @@ class FlowField:
         self.swirlAngle = None
 
     # Make meshgrids to store coordinate system; as a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
+    # Stores coords of mesh nodes rather than cell centres
     def makeGrid(self):
-        # Create coordinate system from mesh info
-        x = np.linspace(-self.sideLengths[0]/2+self.cellSides[0]/2, self.sideLengths[0]/2-self.cellSides[0]/2, self.numCells[0])
-        y = np.linspace(-self.sideLengths[1]/2+self.cellSides[1]/2, self.sideLengths[1]/2-self.cellSides[1]/2, self.numCells[1])
+        # Create coordinate system from mesh info - domain is centered at 0, I think makes for more intuitive definition of vortex positions
+        x = np.linspace(-self.sideLengths[0]/2, self.sideLengths[0]/2, self.numCells[0]+1)
+        y = np.linspace(-self.sideLengths[1]/2, self.sideLengths[1]/2, self.numCells[1]+1)
+
+        # Protection for division by zero later - better solution than this?
+        x[x == 0] = 1e-32
+        y[y == 0] = 1e-32
 
         # Create meshgrid to store coordinate grid - useful in this form for plotting later and reduces the amount of for loops since we can use numpy matrix operations instead
         X, Y = np.meshgrid(x,y, indexing='xy')        # Use familiar ij matrix indexing
