@@ -1,4 +1,5 @@
 import swirlGenerator as sg
+from createSU2 import createInlet
 
 # Uniform streamwise velocity
 axialVel = 1
@@ -6,32 +7,21 @@ axialVel = 1
 # Mesh variables
 xSide = 10                 # Side length of grid in x direction
 ySide = 10                 # Side length of grid in y direction
-xNumCells = 1000           # Num of cells in x direction
-yNumCells = 1000           # Num of cells in y direction
+xNumCells = 100            # Num of cells in x direction
+yNumCells = 100            # Num of cells in y direction
 
 
-# Initialise flow fields
-field1 = sg.FlowField([xSide,ySide],[xNumCells,yNumCells])
-field2 = field1.copy()
-field3 = field1.copy()
-field4 = field1.copy()
+# Initialise flow field
+flowField = sg.FlowField([xSide,ySide],[xNumCells,yNumCells])
 
-# Initialise domain configurations
-bulkSwirl       = sg.Vortices(3, [[0,0]], [18], [5], [-1], [axialVel])
-twinSwirlLO     = sg.Vortices(2, [[-1.25,0],[1.25,0]], [5,-5])
-twinSwirlIso    = sg.Vortices(1, [[-1.25,0],[1.25,0]], [5,-5])
-randomSwirl     = sg.Vortices(1, [[2,0],[3,3],[-3,-1]], [-5,2,3])
+# Initialise domain configuration
+oneVortex    = sg.Vortices(1, [[0,0]], [5])
 
-# Stack objects into array for iteration
-flowFields = [field1,field2,field3,field4]
-swirlDefs = [bulkSwirl, twinSwirlLO, twinSwirlIso, randomSwirl]
-swirlFiles = ["iBulkSwirl.pdf", "iLO_TwinSwirl.pdf", "iIso_TwinSwirl.pdf", "iRandomSwirl.pdf"]
+# Calculate velocity field
+flowField.defineVortices(oneVortex, axialVel=axialVel)
 
-# Loop through swirl description
-for i in range(len(flowFields)):
-    # Calculate domain
-    print(f"Calculating {swirlFiles[i][0:-4]}...")
-    flowFields[i].defineVortices(swirlDefs[i], axialVel=axialVel)
+# Create SU2 boundary condition
+createInlet(flowField, 'test.dat')
 
-    # Save fields to pdf
-    flowFields[i].plotAll(f"flow_fields/{swirlFiles[i]}")
+# Plot fields
+flowField.plotAll()
