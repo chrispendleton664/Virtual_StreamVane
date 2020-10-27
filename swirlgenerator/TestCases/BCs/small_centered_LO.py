@@ -1,5 +1,13 @@
+# --------------------------------------------------------------------------------
+#
+# Script to generate a test boundary condition
+# -small Lamb-Oseen vortex in the middle of the domain
+#
+# --------------------------------------------------------------------------------
+
 import swirlgenerator.core as sg
 from swirlgenerator.createSU2 import createInlet
+import sys
 
 # Uniform streamwise velocity
 axialVel = 1
@@ -7,20 +15,21 @@ axialVel = 1
 # Mesh variables - should match the mesh being used in CFD solver
 xSide = 1
 ySide = 1
-xNumCells = 10
-yNumCells = 10
+xNumCells = 20
+yNumCells = 20
 
 # Intialise flow field object
 flowField = sg.FlowField([xSide,ySide],[xNumCells,yNumCells])
 
 # Intialise domain configuration object
-vortexDefs = sg.Vortices(1, [[0,0]], [2])
+vortexDefs = sg.Vortices(2, [[0,0]], [2])
 
 # Calculate velocity field
 flowField.defineVortices(vortexDefs, axialVel=axialVel)
 
 # Write SU2 boundary condition
-createInlet(flowField, 'small_centered_isentropic.dat')
+createInlet(flowField, 'small_centered_LO.dat')
 
 # Show flow fields
-flowField.plotAll()
+if '-showfields' in sys.argv:
+    flowField.plotAll()
