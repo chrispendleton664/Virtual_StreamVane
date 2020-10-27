@@ -6,6 +6,8 @@ Module for writing the raw flow field data into a file format which SU2 can use 
 At the moment only for incompressible runs
 Takes a FlowField object as input
 
+Assumes that the bottom corner of the inlet surface is at [0,0,0]
+
 Column format for SU2 inlet boundary condition:
 x, y, z, temperature, velocity magnitude,  x-component of flow direction unit vector, y-component of flow direction unit vector, z-component of flow direction unit vector
 '''
@@ -19,7 +21,7 @@ def createInlet(flowField: sg.FlowField, filename):
     y = y + flowField.sideLengths[1]/2
     
     # Z coords at end of mesh
-    z = np.ones(np.shape(x))
+    z = np.zeros(np.shape(x))
 
     # Flatten velocity grids to get velocity vector of every cell
     u = np.reshape(flowField.velGrids[:,:,0],[flowField.velGrids[:,:,0].size,1])
@@ -34,7 +36,7 @@ def createInlet(flowField: sg.FlowField, filename):
     flowDirection = velVec/ np.column_stack((velMag,velMag,velMag))
 
     # Dummy temperature array
-    temp = np.ones(np.shape(x))
+    temp = np.zeros(np.shape(x))
 
     # Collate into one matrix for writing into file
     boundaryConditions = np.column_stack((x,y,z,temp,velMag,flowDirection))
