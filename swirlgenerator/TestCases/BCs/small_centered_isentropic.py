@@ -1,5 +1,5 @@
-from ... import swirlGenerator as sg
-from ...createSU2 import createInlet
+import swirlgenerator.core as sg
+from swirlgenerator.createSU2 import createInlet
 
 # Uniform streamwise velocity
 axialVel = 1

@@ -1,4 +1,4 @@
-import swirlGenerator as sg
+import swirlgenerator.core as sg
 import numpy as np
 
 '''
