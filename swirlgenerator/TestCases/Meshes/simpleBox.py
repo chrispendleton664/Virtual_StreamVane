@@ -21,9 +21,9 @@ WIDTH   = 1
 LENGTH  = 5
 
 # Mesh definition
-NUM_CELLS_HEIGHT    = 100
-NUM_CELLS_WIDTH     = 100
-NUM_CELLS_LENGTH    = 500
+NUM_CELLS_HEIGHT    = 20
+NUM_CELLS_WIDTH     = 20
+NUM_CELLS_LENGTH    = 100
 
 '''
 GEOMETRY DEFINITION
@@ -98,9 +98,9 @@ gmsh.model.geo.synchronize()
 pSurfaces = [gmsh.model.addPhysicalGroup(2, [surfaces[0]])]
 pSurfaces.append(gmsh.model.addPhysicalGroup(2, [surfaces[1]]))
 pSurfaces.append(gmsh.model.addPhysicalGroup(2, surfaces[2:]))
-gmsh.model.setPhysicalName(2, pSurfaces[0], "Inlet")
-gmsh.model.setPhysicalName(2, pSurfaces[1], "Outlet")
-gmsh.model.setPhysicalName(2, pSurfaces[2], "Walls")
+gmsh.model.setPhysicalName(2, pSurfaces[0], "inlet")
+gmsh.model.setPhysicalName(2, pSurfaces[1], "outlet")
+gmsh.model.setPhysicalName(2, pSurfaces[2], "walls")
 
 # Set 3D Physical group for domain volume
 pVol = gmsh.model.addPhysicalGroup(3, [vol])
