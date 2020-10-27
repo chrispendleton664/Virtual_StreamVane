@@ -124,7 +124,7 @@ class FlowField:
         # Add uniform axial velocity field? Or have some other equation for it
         W = np.ones(U.shape)*axialVel
 
-        # Stack velocity grids, and do other necessary cleanup before output
+        # Stack velocity grids into multidimensional array
         self.velGrids = np.dstack([U,V,W])
 
     '''
