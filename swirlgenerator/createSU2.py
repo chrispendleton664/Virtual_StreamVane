@@ -18,8 +18,8 @@ def createInlet(flowField: sg.FlowField, filename):
     x = x + flowField.sideLengths[0]/2
     y = y + flowField.sideLengths[1]/2
     
-    # Z coords at end of mesh - SPECIFIC TO THIS MESH, THIS NEEDS TO BE GENERALISED OR MESH NEEDS TO BE CHANGES
-    z = np.ones(np.shape(x)) * 5
+    # Z coords at end of mesh
+    z = np.ones(np.shape(x))
 
     # Flatten velocity grids to get velocity vector of every cell
     u = np.reshape(flowField.velGrids[:,:,0],[flowField.velGrids[:,:,0].size,1])
