@@ -70,7 +70,8 @@ class Input:
         self.yNumCells = None
         self.zNumCells = None
         self.vortModel = None
-        self.vortices = []
+        self.vortCoords = []
+        self.vortStrengths = []
         self.axialVel = None
 
     # For creating an example configuration file that's compatible with this module
@@ -157,7 +158,8 @@ class Input:
                     # Extract the numeric data from the string for each vortex into an array
                     for i in range(1,numVortices+1):
                         data = list(float(numString) for numString in vortexDefs.get(f"vortex{i}")[1:-1].split(','))
-                        self.vortices.append(data)
+                        self.vortCoords.append(data[0:2])
+                        self.vortStrengths.append(data[2])
 
                         if (len(data) != 3):
                             raise SyntaxError(f"Invalid number of parameters when defining vortex {i}")
