@@ -1,5 +1,5 @@
 import swirlgenerator.core as sg
-from swirlgenerator.writeInlet import writeSU2
+from swirlgenerator.BC import writeSU2
 import sys
 
 # Uniform streamwise velocity

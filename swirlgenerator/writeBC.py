@@ -54,3 +54,14 @@ def writeSU2(flowField: sg.FlowField, filename):
 
         # Write each row of matrix into separate line with 6 decimal places
         np.savetxt(f, boundaryConditions, fmt='%.6f')
+
+'''
+Wrapper function for calling the correct function to write the boundary condition in the requested format
+'''
+def writeInlet(InputObject: sg.Input, flowField: sg.FlowField):
+    # Dictionary mapping for different boundary condition file formats and functions which create them
+    formats = {'su2':writeSU2}
+
+    # Write boundary condition in correct format
+    func = formats.get(InputObject.format)
+    func(flowField, InputObject.filename)
