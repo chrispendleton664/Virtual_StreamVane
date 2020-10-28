@@ -5,4 +5,4 @@ setup(name='swirlgenerator',
       description='',
       author='Gerico Vidanes',
       packages=find_packages(),
-      install_requires=['numpy', 'matplotlib'])
+      install_requires=['numpy', 'matplotlib', 'gmsh'])
