@@ -4,3 +4,4 @@ __pycache__
 *.dat
 *.su2
 swirlGenerator.egg-info
+testharness.py
