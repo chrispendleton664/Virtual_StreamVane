@@ -427,7 +427,7 @@ class FlowField:
     '''
     def getError(self, desiredSwirl):
         # Make sure swirl angle profile has been computed for this FlowField
-        if (self.swirlAngle == None):
+        if self.swirlAngle is None:
             self.getSwirl()
 
         RMSE = np.sqrt((1/np.size(self.swirlAngle))*np.sum((self.swirlAngle-desiredSwirl)**2))
@@ -439,7 +439,7 @@ class FlowField:
     '''
     def plotSwirl(self):
         # Make sure swirl angle profile has been computed for this FlowField
-        if (self.swirlAngle == None):
+        if self.swirlAngle is None:
             self.getSwirl()
 
         # Make contour plot
