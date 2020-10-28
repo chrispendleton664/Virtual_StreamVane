@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
-import warnings
 from typing import Union
+from configparser import ConfigParser
 
 '''
 Heavy use of numpy for fast matrix and vector operations
@@ -56,6 +56,130 @@ class Vortices:
             self.vortNum += 1
 
         return data 
+
+'''
+Class for reading and storing the information in the config file
+'''
+class Input:
+    def __init__(self):
+        # Intiailise all possible variables first
+        self.xSide = None
+        self.ySide = None
+        self.zSide = None
+        self.xNumCells = None
+        self.yNumCells = None
+        self.zNumCells = None
+        self.vortModel = None
+        self.vortices = []
+        self.axialVel = None
+
+    # For creating an example configuration file that's compatible with this module
+    def writeExample(self):
+        # Intialise config parser object
+        config = ConfigParser(allow_no_value=True)
+
+        # Fill object with sections and keys
+        config.add_section('MESH DEFINITION')
+        config.set('MESH DEFINITION', '# Side lengths of inlet face (width, height)')
+        config.set('MESH DEFINITION', 'x_side', '1.0')
+        config.set('MESH DEFINITION', 'y_side', '1.0')
+        config.set('MESH DEFINITION', '# (Optional) Define z length of domain if also generating the test meshed domain')
+        config.set('MESH DEFINITION', 'z_side', '5.0')
+        config.set('MESH DEFINITION', '# Number of mesh cells along each side')
+        config.set('MESH DEFINITION', 'x_num_cells', '20')
+        config.set('MESH DEFINITION', 'y_num_cells', '20')
+        config.set('MESH DEFINITION', '# (Optional) Define z mesh if also generating the test meshed domain')
+        config.set('MESH DEFINITION', 'z_num_cells', '100')
+
+        config.add_section('VORTEX DEFINITIONS')
+        config.set('VORTEX DEFINITIONS', '# Vortex model')
+        config.set('VORTEX DEFINITIONS', 'vortex_model', '2')
+        config.set('VORTEX DEFINITIONS', '# List of vortex data - for each vortex: (x-coord, y-coord, strength)')
+        config.set('VORTEX DEFINITIONS', 'vortex1', '(0.0, 0.0, 2.0)')
+
+        config.add_section('EXTRA')
+        config.set('EXTRA', '# Uniform axial (streamwise) velocity of inlet (default is 1)')
+        config.set('EXTRA', 'axial_vel', '1.0')
+
+        # Write to file
+        with open('example.config', 'w') as file:
+            config.write(file)
+
+
+    def read(self, configFile):
+        # Initialise config parser and read config file
+        config = ConfigParser()
+        config.read(configFile)
+
+        # Check which sections are present
+
+        if 'MESH DEFINITION' in config:
+            # Get section
+            meshDefinitions = config['MESH DEFINITION']
+
+            # Check present inputs
+            try:
+                self.xSide = float(meshDefinitions.get('x_side'))
+                self.ySide = float(meshDefinitions.get('y_side'))
+                self.xNumCells = int(meshDefinitions.get('x_num_cells'))
+                self.yNumCells = int(meshDefinitions.get('y_num_cells'))
+            except KeyError:
+                raise KeyError(f"Non-optional mesh parameters are missing in file {configFile}")
+            except ValueError:
+                raise ValueError(f"Invalid values defined for mesh parameters")
+            except:
+                raise       # Raise all other errors as is
+
+            if 'Z_SIDE' in meshDefinitions:
+                self.zSide = float(meshDefinitions.get('z_side'))
+
+            if 'Z_NUM_CELLS' in meshDefinitions:
+                self.zNumCells = int(meshDefinitions.get('z_num_cells'))
+
+        else:
+            raise ValueError(f"Non-optional mesh definitions section not present in file {configFile}")
+
+        if 'VORTEX DEFINITIONS' in config:
+            # Get section
+            vortexDefs = config['VORTEX DEFINITIONS']
+
+            # Get number of vortices defined
+            numVortices = sum(1 for key in vortexDefs) - 1
+
+            # Check present inputs
+            try:
+                self.vortModel = int(vortexDefs.get('vortex_model'))
+            except KeyError:
+                raise KeyError(f"Non-optional vortex parameters are missing in file {configFile}")
+
+            if (numVortices > 0):
+                try:
+                    # Extract the numeric data from the string for each vortex into an array
+                    for i in range(1,numVortices+1):
+                        data = list(float(numString) for numString in vortexDefs.get(f"vortex{i}")[1:-1].split(','))
+                        self.vortices.append(data)
+
+                        if (len(data) != 3):
+                            raise SyntaxError(f"Invalid number of parameters when defining vortex {i}")
+
+                except ValueError:
+                    raise ValueError(f"Invalid values defined for vortex parameters")
+            else:
+                raise KeyError(f"At least one vortex needs to be defined in {configFile}")
+        else:
+            raise ValueError(f"Non-optional vortex definitions section not present in file {configFile}")
+
+        # Optional section
+        if 'EXTRA' in config:
+            # Get section
+            extraParams = config['EXTRA']
+
+            # May need better solution than this since will need a try/except pair for each optional config
+            try:
+                self.axialVel = float(extraParams.get('axial_vel'))
+            except:
+                pass
+
 
 '''
 Class containing data and functions relevant to the flow field
