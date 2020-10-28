@@ -63,7 +63,7 @@ Call all necessary functions to create boundary condition from input data
 '''
 # Initialise Input object and read config file
 inputData = sg.Input()
-inputData.read('example.config')
+inputData.read(configFile)
 
 # Intialise flow field object with coordinate system
 flowField = sg.FlowField([inputData.xSide,inputData.ySide], [inputData.xNumCells, inputData.yNumCells])
