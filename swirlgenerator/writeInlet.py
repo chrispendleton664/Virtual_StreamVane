@@ -1,17 +1,23 @@
+# -------------------------------------------------------------------------------------------------------------------
+#
+# Module for writing the raw flow field data into a file format which can be uses as an inlet boundary condition
+# Takes a FlowField object as input
+#
+# Assumes that the bottom corner of the inlet surface is at [0,0,0]
+#
+# Only has functionality for SU2 format at the moment
+#
+# -------------------------------------------------------------------------------------------------------------------
+
 import swirlgenerator.core as sg
 import numpy as np
 
 '''
-Module for writing the raw flow field data into a file format which SU2 can use as an inlet boundary condition
-At the moment only for incompressible runs
-Takes a FlowField object as input
-
-Assumes that the bottom corner of the inlet surface is at [0,0,0]
-
-Column format for SU2 inlet boundary condition:
+For writing into an SU2 useable format
+Column format for SU2 inlet boundary condition (3D domain):
 x, y, z, temperature, velocity magnitude,  x-component of flow direction unit vector, y-component of flow direction unit vector, z-component of flow direction unit vector
 '''
-def createInlet(flowField: sg.FlowField, filename):
+def writeSU2(flowField: sg.FlowField, filename):
     # Flatten coordinate grids to get coordinates of every cell
     x = np.reshape(flowField.coordGrids[:,:,0],[flowField.coordGrids[:,:,0].size,1])
     y = np.reshape(flowField.coordGrids[:,:,1],[flowField.coordGrids[:,:,1].size,1])
@@ -49,11 +55,12 @@ def createInlet(flowField: sg.FlowField, filename):
         # Write each row of matrix into separate line with 6 decimal places
         np.savetxt(f, boundaryConditions, fmt='%.6f')
 
+
 def main():
     flowField = sg.FlowField([1,1],[100,100])
     VortexDefs = sg.Vortices(1, [[-2,0],[2,0]], [-5,5])
     flowField.defineVortices(VortexDefs, 5)
-    createInlet(flowField,'boundary_conditions/test.dat')
+    writeSU2(flowField,'boundary_conditions/test.dat')
 
 if __name__ == '__main__':
     main()

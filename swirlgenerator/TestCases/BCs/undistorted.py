@@ -1,5 +1,5 @@
 import swirlgenerator.core as sg
-from swirlgenerator.createSU2 import createInlet
+from swirlgenerator.writeInlet import writeSU2
 import sys
 
 # Uniform streamwise velocity
@@ -21,7 +21,7 @@ vortexDefs = sg.Vortices(2, [[0,0]], [0])
 flowField.defineVortices(vortexDefs, axialVel=axialVel)
 
 # Write SU2 boundary condition
-createInlet(flowField, 'blank.dat')
+writeSU2(flowField, 'blank.dat')
 
 # Show flow fields
 if '-showfields' in sys.argv:
