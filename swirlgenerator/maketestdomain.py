@@ -13,7 +13,7 @@ import swirlgenerator.core as sg
 
 def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
 
-    print('Creating geometry')
+    print('Creating geometry...')
 
     gmsh.initialize()
 
@@ -25,11 +25,9 @@ def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
     gmsh.model.add("box")
 
     # Define the points of the box
-    print('Defining points...')
     points = [gmsh.model.geo.addPoint(point[0],point[1],point[2]) for point in vertices]
 
     # Define the lines between the points - Needs to be done in a certain order for later
-    print('Defining lines...')
     lines = []
     for i in range(4):
         # Lines in first square face
@@ -44,7 +42,6 @@ def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
         lines.append(gmsh.model.geo.addLine(points[i], points[i+4]))
 
     # Define the curve loops of lines 
-    print('Defining surfaces...')
     loops = []
     # Loops for square faces
     loops.append(gmsh.model.geo.addCurveLoop(lines[0:4]))
@@ -57,7 +54,6 @@ def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
     surfaces = [gmsh.model.geo.addPlaneSurface([loop]) for loop in loops]
 
     # Define a 'surface loop' then use this to define a volume
-    print('Defining volume...')
     surfLoop = gmsh.model.geo.addSurfaceLoop(surfaces)
     vol = gmsh.model.geo.addVolume([surfLoop])
 
