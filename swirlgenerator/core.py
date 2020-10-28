@@ -228,7 +228,7 @@ class FlowField:
     Calculates the velocity and thermodynamic fields
     vortDefs - Vortices object; axialVel - uniform axial velocity to be applied; density - if defined, assume that flow is incompressible
     '''
-    def defineVortices(self, vortDefs, axialVel=1, density = None):
+    def defineVortices(self, vortDefs: Vortices, axialVel=1, density = None):
         # Intialise 3D arrays to store multiple meshgrids - one for the component effect of each vortex
         uComps = np.zeros(np.append(self.coordGrids[:,:,0].shape, vortDefs.strengths.shape[0]))
         vComps = uComps.copy()
