@@ -1,6 +1,7 @@
 from matplotlib.pyplot import plot
 import swirlgenerator.core as sg
 import swirlgenerator.writeBC as bc
+import swirlgenerator.maketestdomain as domain
 import sys
 
 '''
@@ -11,6 +12,28 @@ if (len(sys.argv) < 2) or (sys.argv[1].find('-') == 0):
     raise RuntimeError('Configuration file missing')
 else:
     configFile = sys.argv[1]
+
+# Make meshed test domain
+if '-makemesh' in sys.argv:
+    # Get index of this command line arguement
+    idx = sys.argv.index('-makemesh')
+
+    # Check if there is a pair
+    try:
+        if (sys.argv[idx+1].find('-') == 0):
+            raise RuntimeError
+        else:
+            # Use as filename
+            meshFile = sys.argv[idx+1]
+            makemesh = True
+    except:
+        raise RuntimeError("-makemesh arguement defined but no mesh filename given")
+else:
+    makemesh = False
+    meshFile = None
+
+# Show created test mesh
+showmesh = (True if '-showmesh' in sys.argv else False)
 
 # Show plots
 showFields = (True if '-show' in sys.argv else False)
@@ -63,10 +86,14 @@ bc.writeInlet(InputObject=inputData, flowField=flowField)
 '''
 Optional functionalities
 '''
+# Create a test mesh compatible with the boundary condition that's been generated
+if makemesh:
+    domain.simpleBox(inputData, meshFile, showmesh)
+
 # Save flow fields in pdf if requested
 if saveplots:
     flowField.plotAll(plotsFile)
-    
+
 # Show flow fields if requested
 if showFields:
     flowField.plotAll()
