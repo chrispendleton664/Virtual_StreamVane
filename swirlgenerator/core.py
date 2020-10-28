@@ -154,8 +154,6 @@ class Input:
                 raise KeyError(f"Non-optional mesh parameters are missing in file {configFile}")
             except ValueError:
                 raise ValueError(f"Invalid values defined for mesh parameters")
-            except:
-                raise       # Raise all other errors as is
 
             if ('Z_SIDE' in meshDefinitions):
                 self.zSide = float(meshDefinitions.get('z_side'))
