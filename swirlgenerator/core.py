@@ -63,6 +63,8 @@ Class for reading and storing the information in the config file
 class Input:
     def __init__(self):
         # Intiailise all possible variables first
+        self.filename = None
+        self.format = None
         self.xSide = None
         self.ySide = None
         self.zSide = None
@@ -80,6 +82,12 @@ class Input:
         config = ConfigParser(allow_no_value=True)
 
         # Fill object with sections and keys
+        config.add_section('METADATA')
+        config.set('METADATA', '# Name of inlet boundary condition output file')
+        config.set('METADATA', 'filename', 'example.dat')
+        config.set('METADATA', '# Which cfd framework to format the file for (su2, )')
+        config.set('METADATA', 'format', 'su2')
+
         config.add_section('MESH DEFINITION')
         config.set('MESH DEFINITION', '# Side lengths of inlet face (width, height)')
         config.set('MESH DEFINITION', 'x_side', '1.0')
@@ -114,7 +122,25 @@ class Input:
 
         # Check which sections are present
 
-        if 'MESH DEFINITION' in config:
+        if ('METADATA' in config):
+            # Get section
+            metadata = config['METADATA']
+
+            # Supported formats 
+            formats = ['su2']
+
+            try:
+                self.filename = metadata.get('filename')
+                
+                format = metadata.get('format')
+                if (format in formats):
+                    self.format = format
+                else:
+                    raise ValueError(f"{format} not supported")
+            except KeyError:
+                raise KeyError(f"Non-optional matadata missing in file {configFile}")
+
+        if ('MESH DEFINITION' in config):
             # Get section
             meshDefinitions = config['MESH DEFINITION']
 
@@ -131,16 +157,16 @@ class Input:
             except:
                 raise       # Raise all other errors as is
 
-            if 'Z_SIDE' in meshDefinitions:
+            if ('Z_SIDE' in meshDefinitions):
                 self.zSide = float(meshDefinitions.get('z_side'))
 
-            if 'Z_NUM_CELLS' in meshDefinitions:
+            if ('Z_NUM_CELLS' in meshDefinitions):
                 self.zNumCells = int(meshDefinitions.get('z_num_cells'))
 
         else:
             raise ValueError(f"Non-optional mesh definitions section not present in file {configFile}")
 
-        if 'VORTEX DEFINITIONS' in config:
+        if ('VORTEX DEFINITIONS' in config):
             # Get section
             vortexDefs = config['VORTEX DEFINITIONS']
 
@@ -172,7 +198,7 @@ class Input:
             raise ValueError(f"Non-optional vortex definitions section not present in file {configFile}")
 
         # Optional section
-        if 'EXTRA' in config:
+        if ('EXTRA' in config):
             # Get section
             extraParams = config['EXTRA']
 
