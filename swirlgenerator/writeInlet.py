@@ -54,13 +54,3 @@ def writeSU2(flowField: sg.FlowField, filename):
 
         # Write each row of matrix into separate line with 6 decimal places
         np.savetxt(f, boundaryConditions, fmt='%.6f')
-
-
-def main():
-    flowField = sg.FlowField([1,1],[100,100])
-    VortexDefs = sg.Vortices(1, [[-2,0],[2,0]], [-5,5])
-    flowField.defineVortices(VortexDefs, 5)
-    writeSU2(flowField,'boundary_conditions/test.dat')
-
-if __name__ == '__main__':
-    main()
