@@ -12,9 +12,9 @@ import sys
 import swirlgenerator.core as sg
 
 def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
-    '''
-    GEOMETRY DEFINITION
-    '''
+
+    print('Creating geometry')
+
     gmsh.initialize()
 
     # Get vertices of box
@@ -25,9 +25,11 @@ def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
     gmsh.model.add("box")
 
     # Define the points of the box
+    print('Defining points...')
     points = [gmsh.model.geo.addPoint(point[0],point[1],point[2]) for point in vertices]
 
     # Define the lines between the points - Needs to be done in a certain order for later
+    print('Defining lines...')
     lines = []
     for i in range(4):
         # Lines in first square face
@@ -42,6 +44,7 @@ def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
         lines.append(gmsh.model.geo.addLine(points[i], points[i+4]))
 
     # Define the curve loops of lines 
+    print('Defining surfaces...')
     loops = []
     # Loops for square faces
     loops.append(gmsh.model.geo.addCurveLoop(lines[0:4]))
@@ -54,12 +57,12 @@ def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
     surfaces = [gmsh.model.geo.addPlaneSurface([loop]) for loop in loops]
 
     # Define a 'surface loop' then use this to define a volume
+    print('Defining volume...')
     surfLoop = gmsh.model.geo.addSurfaceLoop(surfaces)
     vol = gmsh.model.geo.addVolume([surfLoop])
 
-    '''
-    MESH DEFINITION
-    '''
+    print('Defining mesh...')
+
     # Define a transfinite(uniform) mesh on the lines
     for i in range(len(lines)):
         if (i > 7):
@@ -97,10 +100,12 @@ def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
     gmsh.model.setPhysicalName(3, pVol, "Domain")
 
     # Generate 3D mesh
+    print('Generating mesh...')
     gmsh.model.mesh.generate(3)
 
     # Write mesh to file
     gmsh.write(meshfilename)
+    print(f"Mesh file written to {meshfilename}")
 
     # Visualise model in gui
     if showmesh:
