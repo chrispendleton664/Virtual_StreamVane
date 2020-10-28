@@ -136,7 +136,7 @@ class Input:
                 if (format in formats):
                     self.format = format
                 else:
-                    raise ValueError(f"{format} not supported")
+                    raise NotImplementedError(f"{format} not supported")
             except KeyError:
                 raise KeyError(f"Non-optional matadata missing in file {configFile}")
 
