@@ -354,9 +354,12 @@ class FlowField:
         # Get tangential velocity at each cell
         tangentVel = vortData[3]*np.tan(swirlAngles)
 
+        # Get theta_dot at each cell
+        theta_dot = tangentVel/r
+
         # Get velocity vector components, in-plane cartesian (assume no radial velocity)
-        uComp = -r*tangentVel*np.sin(theta)
-        vComp =  r*tangentVel*np.cos(theta)
+        uComp = -r*theta_dot*np.sin(theta)
+        vComp =  r*theta_dot*np.cos(theta)
 
         return uComp, vComp
 
@@ -422,8 +425,14 @@ class FlowField:
     Get swirl angles
     '''
     def getSwirl(self):
+        # Get theta_dot - rate of chane of theta angle (rad/s)
+        theta_dot = (self.coordGrids[:,:,0]*self.velGrids[:,:,1] - self.velGrids[:,:,0]*self.coordGrids[:,:,1]) / (self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
+        # Get radius
+        r = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
+
         # Get tangential velocity
-        velTheta = (self.coordGrids[:,:,0]*self.velGrids[:,:,1] - self.velGrids[:,:,0]*self.coordGrids[:,:,1]) / (self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
+        velTheta = r*theta_dot
+
         # Get swirl angle - as defined in literature
         swirlAngle = np.arctan(velTheta/self.velGrids[:,:,2])
         # Convert to degrees
