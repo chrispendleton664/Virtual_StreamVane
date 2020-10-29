@@ -69,7 +69,11 @@ inputData.read(configFile)
 flowField = sg.FlowField([inputData.xSide,inputData.ySide], [inputData.xNumCells, inputData.yNumCells])
 
 # Initialise domain configuration object with vortex definitions
-vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths)
+if inputData.vortModel != 3:
+    vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths)
+else:
+    # For solid vortex
+    vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths, radius=inputData.vortRadius, axialVel=[inputData.axialVel])
 
 # Calculate velocity field
 if inputData.axialVel != None:

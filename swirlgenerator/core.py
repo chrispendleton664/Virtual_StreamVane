@@ -22,7 +22,7 @@ Each vortex can be defined as a different type
 class Vortices: 
     # Object constructor accepts lists also for convenience, then later converts to numpy arrays
     def __init__(self, model: int, centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray],
-                       radius: Union[list, np.ndarray] = [], clockwise: Union[list, np.ndarray] = [], axialVel: Union[list, np.ndarray] = []):
+                       radius: Union[list, np.ndarray] = [], axialVel: Union[list, np.ndarray] = []):
 
         self.numVortices    = len(strengths)
 
@@ -32,14 +32,13 @@ class Vortices:
         self.centres        = (centres      if isinstance(centres,np.ndarray)   else np.array(centres))       # Vortex centre
         self.strengths      = (strengths    if isinstance(strengths,np.ndarray) else np.array(strengths))     # Vortex strength
         self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex radius - can define a strong edge to the vortex, it has no effect on the flow outside this
-        self.clockwise      = (clockwise    if isinstance(clockwise,np.ndarray) else np.array(clockwise))     # Rotation direction - only needed for some types of vortices
         self.axialVel       = (axialVel     if isinstance(axialVel,np.ndarray)  else np.array(axialVel))      # Uniform axial velcoity - only needed for forced swirl type
 
         self.vortNum        = 0             # For keeping track during iteration
 
         # If there are forced vortices defined, make sure necessary arguements are defined
-        if (self.model == 3 and (self.radius.size == 0 or self.clockwise.size == 0 or self.axialVel.size == 0)):
-            raise RuntimeError("Forced vortex type defined but radius, direction or axial velocity arguement is mixing")
+        if (self.model == 3 and (self.radius.size == 0 or self.axialVel.size == 0)):
+            raise RuntimeError("Forced vortex type defined but radius, direction or axial velocity arguement is missing")
 
     # Return data for next vortex as tuple, for iteration
     def getNextVortex(self):
@@ -49,7 +48,7 @@ class Vortices:
         else:
             # Output correct tuple format depending on vortex type
             if (self.model == 3):
-                data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum], self.clockwise[self.vortNum], self.axialVel[self.vortNum])
+                data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum], self.axialVel[self.vortNum])
             else:
                 data = (self.centres[self.vortNum], self.strengths[self.vortNum])
 
@@ -74,6 +73,7 @@ class Input:
         self.vortModel = None
         self.vortCoords = []
         self.vortStrengths = []
+        self.vortRadius = []
         self.axialVel = None
 
     # For creating an example configuration file that's compatible with this module
@@ -103,7 +103,7 @@ class Input:
         config.add_section('VORTEX DEFINITIONS')
         config.set('VORTEX DEFINITIONS', '# Vortex model')
         config.set('VORTEX DEFINITIONS', 'vortex_model', '2')
-        config.set('VORTEX DEFINITIONS', '# List of vortex data - for each vortex: (x-coord, y-coord, strength)')
+        config.set('VORTEX DEFINITIONS', '# List of vortex data - for each vortex: (x-coord, y-coord, strength, radius[only for required for solid vortex])')
         config.set('VORTEX DEFINITIONS', 'vortex1', '(0.0, 0.0, 2.0)')
 
         config.add_section('EXTRA')
@@ -182,11 +182,15 @@ class Input:
                     # Extract the numeric data from the string for each vortex into an array
                     for i in range(1,numVortices+1):
                         data = list(float(numString) for numString in vortexDefs.get(f"vortex{i}")[1:-1].split(','))
+
+                        if (len(data) < 3):
+                            raise SyntaxError(f"Invalid number of parameters when defining vortex {i}")
+
                         self.vortCoords.append(data[0:2])
                         self.vortStrengths.append(data[2])
 
-                        if (len(data) != 3):
-                            raise SyntaxError(f"Invalid number of parameters when defining vortex {i}")
+                        if (len(data) > 3):
+                            self.vortRadius.append(data[3])
 
                 except ValueError:
                     raise ValueError(f"Invalid values defined for vortex parameters")
@@ -328,7 +332,10 @@ class FlowField:
     '''
     def __solidVortex__(self, vortData):
         # Get swirl angle and convert it to radians
-        maxSwirlAngle = np.deg2rad(vortData[1])
+        maxSwirlAngle = np.deg2rad(np.abs(vortData[1]))
+
+        # Get vortex rotation information from sign of maximum angle specified
+        anitclockwise = (True if vortData[1] > 0 else False)
 
         # Get axial coordinates
         r = np.sqrt((self.coordGrids[:,:,0]-vortData[0][0])**2 + (self.coordGrids[:,:,1] - vortData[0][1])**2)
@@ -342,10 +349,10 @@ class FlowField:
         swirlAngles = maxSwirlAngle*rNorm
 
         # Transform so swirl is coherent (either clockwise or anticlockwise) - without this, the swirl profile produced is mirrored about the y axis
-        swirlAngles[(self.coordGrids[:,:,0] * -vortData[3] < 0)] = swirlAngles[(self.coordGrids[:,:,0] * -vortData[3] < 0)] * -1
+        swirlAngles[(self.coordGrids[:,:,0] * anitclockwise < 0)] = swirlAngles[(self.coordGrids[:,:,0] * anitclockwise < 0)] * -1
 
         # Get tangential velocity at each cell
-        tangentVel = vortData[4]*np.tan(swirlAngles)
+        tangentVel = vortData[3]*np.tan(swirlAngles)
 
         # Get velocity vector components, in-plane cartesian (assume no radial velocity)
         uComp = -r*tangentVel*np.sin(theta)
