@@ -310,7 +310,6 @@ class FlowField:
 
         # Get radius of each cell from centre of this vortex
         r = np.sqrt((self.coordGrids[:,:,0]-vortData[0][0])**2 + (self.coordGrids[:,:,1] - vortData[0][1])**2)
-        rsquare = r**2
 
         # Get omega (actual vortex strength?)
         omega = vortData[1]/(np.pi * a0**2)
@@ -385,21 +384,18 @@ class FlowField:
     '''
     Create plots for the swirling velocity profile as a quiver plot and a streamlines plot
     '''
-    def plotVelocity(self):
-        # Get individual grids, more convenient for pruning etc. for plots
-        X = self.coordGrids[:,:,0]
-        Y = self.coordGrids[:,:,1]
-
-        # For making quiver plot sparser, but independent of grid density
-        quiverEvery = int(X.size**(1/2) / 20)
-        quiverEvery = (1 if (quiverEvery == 0) else quiverEvery)
+    def plotVelocity(self, maxNumArrows=30):
+        # Reduced indices of grids - so only a maximum of n^2 arrows will be plotted on the quiver plot
+        n = maxNumArrows
+        gridDims = self.coordGrids.shape
+        step = [int(gridDims[0]/n),int(gridDims[1]/n)]
+        reduced = np.mgrid[0:gridDims[0]:step[0],0:gridDims[1]:step[1]].reshape(2,-1).T
 
         # Make quiver plot
         plt.figure()
         plt.gca().set_aspect('equal', adjustable='box')
         plt.title("Quiver")
-        skip = (slice(None,None,quiverEvery), slice(None,None,quiverEvery))       # Prune output so quiver plot is not so dense
-        plt.quiver(self.coordGrids[:,:,0][skip], self.coordGrids[:,:,1][skip], self.velGrids[:,:,0][skip], self.velGrids[:,:,1][skip])
+        plt.quiver(self.coordGrids[reduced[:,0],reduced[:,1],0], self.coordGrids[reduced[:,0],reduced[:,1],1], self.velGrids[reduced[:,0],reduced[:,1],0], self.velGrids[reduced[:,0],reduced[:,1],1], units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5)
 
         # Make streamlines plot
         plt.figure()
@@ -413,12 +409,12 @@ class FlowField:
     def plotThermos(self):
         plt.figure()
         plt.title('Density')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.rho,100)
+        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.rho,50,cmap='jet')
         plt.colorbar()
 
         plt.figure()
         plt.title('Pressure')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.pressure,100)
+        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.pressure,50,cmap='jet')
         plt.colorbar()
 
     '''
@@ -461,7 +457,7 @@ class FlowField:
         # Make contour plot
         plt.figure()
         plt.title('Swirl angle')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.swirlAngle,100)
+        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.swirlAngle,50,cmap='jet')
         plt.colorbar()
 
     '''
