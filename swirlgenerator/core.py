@@ -15,15 +15,14 @@ kin_visc = 1.81e-5
 density = 1.225         # ISA sea level condition - for incompressible
 
 '''
-For storing information about the vortices which have been defined for the domain
-Each vortex can be defined as a different type
-- Vortex models: 1 - Isentropic; 2 - Lamb-Oseen; 3 - Forced/Solid
+For storing and convenient querying of information about the vortices which have been defined for the domain
+A separate class is used since the domain could be more complex in previous versions - left as separate class rather than embedding into Input class for code clarity and future proofing
 - Positive vortex strength is defined as anti-clockwise rotation
 '''
 class Vortices: 
     # Object constructor accepts lists also for convenience, then later converts to numpy arrays
     def __init__(self, model: int, centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray],
-                       radius: Union[list, np.ndarray], axialVel: Union[list, np.ndarray] = []):
+                       radius: Union[list, np.ndarray], axialVel: float):
 
         self.numVortices    = len(strengths)
 
@@ -33,27 +32,16 @@ class Vortices:
         self.centres        = (centres      if isinstance(centres,np.ndarray)   else np.array(centres))       # Vortex centre
         self.strengths      = (strengths    if isinstance(strengths,np.ndarray) else np.array(strengths))     # Vortex strength
         self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex core radius - where the majority of vorticity is concentrated
-        self.axialVel       = (axialVel     if isinstance(axialVel,np.ndarray)  else np.array(axialVel))      # Uniform axial velcoity - only needed for forced swirl type
+        self.axialVel       = axialVel                                                                        # Uniform axial velcoity - only needed for forced swirl type
 
-        self.vortNum        = 0             # For keeping track during iteration
-
-        # If there are forced vortices defined, make sure necessary arguements are defined
-        if (self.model == 3 and (self.radius.size == 0 or self.axialVel.size == 0)):
-            raise RuntimeError("Forced vortex type defined but radius, direction or axial velocity arguement is missing")
-
-    # Return data for next vortex as tuple, for iteration
-    def getNextVortex(self):
+    # Return data for requested vortex as tuple
+    def getVortex(self,vortexIndex):
         # Check if at end of vortex list
-        if (self.vortNum == self.numVortices):
+        if (vortexIndex >= self.numVortices):
             raise IndexError(f"Index {self.vortNum} is out of bounds of vortex list with size {self.numVortices}")
         else:
-            # Output correct tuple format depending on vortex type
-            if (self.model == 3):
-                data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum], self.axialVel[self.vortNum])
-            else:
-                data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum])
-
-            self.vortNum += 1
+            # Output tuple format 
+            data = (self.centres[vortexIndex], self.strengths[vortexIndex], self.radius[vortexIndex], self.axialVel[vortexIndex])
 
         return data 
 
@@ -203,11 +191,14 @@ class Input:
             # Get section
             extraParams = config['EXTRA']
 
-            # May need better solution than this since will need a try/except pair for each optional config
+            # May need better solution than this in future since will need a try/except pair for each optional config
             try:
                 self.axialVel = float(extraParams.get('axial_vel'))
             except:
                 pass
+
+        # Set defaults if values weren't set
+        self.axialVel = [1.0 if self.axialVel is None else self.axialVel]
 
 
 '''
@@ -255,7 +246,7 @@ class FlowField:
     Calculates the velocity and thermodynamic fields
     vortDefs - Vortices object; axialVel - uniform axial velocity to be applied; density - if defined, assume that flow is incompressible
     '''
-    def defineVortices(self, vortDefs: Vortices, axialVel=1, density = None):
+    def defineVortices(self, vortDefs: Vortices, axialVel, density = None):
         # Intialise 3D arrays to store multiple meshgrids - one for the component effect of each vortex
         uComps = np.zeros(np.append(self.coordGrids[:,:,0].shape, vortDefs.strengths.shape[0]))
         vComps = uComps.copy()
@@ -268,7 +259,7 @@ class FlowField:
             # Get function for this vortex type
             func = vortexType.get(vortDefs.model)
             # Call vortex function to fill component arrays - with data for a single vortex
-            uComps[:,:,i], vComps[:,:,i] = func(vortDefs.getNextVortex())
+            uComps[:,:,i], vComps[:,:,i] = func(vortDefs.getVortex(i))
 
         # Collate effects of each vortex
         U = np.sum(uComps,axis=2)

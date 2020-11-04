@@ -69,19 +69,10 @@ inputData.read(configFile)
 flowField = sg.FlowField([inputData.xSide,inputData.ySide], [inputData.xNumCells, inputData.yNumCells])
 
 # Initialise domain configuration object with vortex definitions
-if inputData.vortModel != 3:
-    vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths, inputData.vortRadius)
-else:
-    # For solid vortex
-    vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths, inputData.vortRadius, axialVel=[inputData.axialVel])
+vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths, inputData.vortRadius, inputData.axialVel)
 
 # Calculate velocity field
-if inputData.axialVel != None:
-    # Define the uniform axial velocity
-    flowField.defineVortices(vortexDefs, axialVel=inputData.axialVel)
-else:
-    # Leave as default
-    flowField.defineVortices(vortexDefs)
+flowField.defineVortices(vortexDefs, axialVel=inputData.axialVel)
 
 # Write inlet boundary condition file
 bc.writeInlet(InputObject=inputData, flowField=flowField)
