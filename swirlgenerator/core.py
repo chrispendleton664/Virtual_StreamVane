@@ -302,18 +302,21 @@ class FlowField:
     vortData - tuple produced by getNextVortex() function of Vortices class
     '''
     def __loVortex__(self, vortData):
-        # Some parameter - a0=0.1 apparently creates maximum swirl angle of 16deg when other parameters same as paper
-        a0 = 0.1
+        # Extract individual variables from stacked tuples and arrays for convenience
+        xc, yc = vortData[0]
+        strength = vortData[1]
+        a0 = vortData[2]
+        x, y = self.coordGrids[:,:,0], self.coordGrids[:,:,1]
 
         # Get radius of each cell from centre of this vortex
-        r = np.sqrt((self.coordGrids[:,:,0]-vortData[0][0])**2 + (self.coordGrids[:,:,1] - vortData[0][1])**2)
+        rr = (x-xc)**2 + (y-yc)**2
 
-        # Get omega (actual vortex strength?)
-        omega = vortData[1]/(np.pi * a0**2)
+        # Get omega, the peak magnitude of vorticity
+        omega = strength/(np.pi * a0**2)
 
         # Velocity components due to this vortex
-        uComp = 0.5 * (a0**2 * omega * (self.coordGrids[:,:,1] - vortData[0][1]) / r**2) * (1 - np.exp(-r**2/a0**2))
-        vComp = 0.5 * (a0**2 * omega * (vortData[0][0] - self.coordGrids[:,:,0]) / r**2) * (1 - np.exp(-r**2/a0**2))
+        uComp = 0.5  * (a0**2 * omega * (y - yc) / rr) * (1 - np.exp(-rr/a0**2))
+        vComp = -0.5 * (a0**2 * omega * (x - xc) / rr) * (1 - np.exp(-rr/a0**2))
 
         return uComp, vComp
 
