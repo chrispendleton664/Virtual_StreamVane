@@ -61,6 +61,7 @@ class Input:
         self.xSide = None
         self.ySide = None
         self.zSide = None
+        self.shape = None
         self.xNumCells = None
         self.yNumCells = None
         self.zNumCells = None
@@ -149,10 +150,13 @@ class Input:
             except ValueError:
                 raise ValueError(f"Invalid values defined for mesh parameters")
 
-            if ('Z_SIDE' in meshDefinitions):
+            if ('shape' in meshDefinitions):
+                self.shape = meshDefinitions.get('shape')
+
+            if ('z_side' in meshDefinitions):
                 self.zSide = float(meshDefinitions.get('z_side'))
 
-            if ('Z_NUM_CELLS' in meshDefinitions):
+            if ('z_num_cells' in meshDefinitions):
                 self.zNumCells = int(meshDefinitions.get('z_num_cells'))
 
         else:
@@ -203,21 +207,34 @@ class Input:
                 pass
 
         # Set defaults if values weren't set
-        self.axialVel = [1.0 if self.axialVel is None else self.axialVel]
+        self.axialVel   = [1.0 if self.axialVel is None else self.axialVel]
+        self.shape      = ['square' if self.shape is None else self.shape]
 
 
 '''
 Class containing data and functions relevant to the flow field
 '''
 class FlowField:
-    def __init__(self, sideLengths=[10,10], numCells=[100,100]):
+    def __init__(self, sideLengths=[10,10], numCells=[100,100], shape='square'):
         # Flow field descretisation descriptions
+        self.shape = shape
         self.sideLengths = sideLengths
         self.numCells = numCells
         self.cellSides = np.divide(self.sideLengths,self.numCells)
 
         # Create coordinate grids of flow field mesh cells
         self.coordGrids = self.makeGrid()
+
+        # Store boolean array indicating which cells are outside - can't recalculate since the cells outside domain will be given coords of [1e-32,1e-32]
+        self.outside = np.zeros(self.coordGrids.shape[0:2], dtype=bool)
+
+        # If a circular domain is requested - make the coordinates of the cells outside the circle close to zero (not actually zero to avoid division by zero warnings)
+        # Not an ideal solution since still computing cells that are supposed to be outside the domain
+        if 'circle' in self.shape:
+            domainRadius = min(self.sideLengths)/2      # Take domain diameter from shortest side of rectangular domain
+            radius = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
+            self.outside = radius > domainRadius
+            self.coordGrids[np.dstack([self.outside,self.outside])] = 1e-32
 
         # Initialise the actual flow field variables
         self.velGrids   = None

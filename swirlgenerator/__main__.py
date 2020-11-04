@@ -67,7 +67,7 @@ inputData = sg.Input()
 inputData.read(configFile)
 
 # Intialise flow field object with coordinate system
-flowField = sg.FlowField([inputData.xSide,inputData.ySide], [inputData.xNumCells, inputData.yNumCells])
+flowField = sg.FlowField([inputData.xSide,inputData.ySide], [inputData.xNumCells, inputData.yNumCells], inputData.shape)
 
 # Initialise domain configuration object with vortex definitions
 vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths, inputData.vortRadius, inputData.axialVel)

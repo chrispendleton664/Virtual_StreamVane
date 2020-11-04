@@ -45,11 +45,17 @@ def plotVelocity(flowfield, maxNumArrows=30):
     plt.title("Quiver")
     plt.quiver(flowfield.coordGrids[reduced[:,0],reduced[:,1],0], flowfield.coordGrids[reduced[:,0],reduced[:,1],1], flowfield.velGrids[reduced[:,0],reduced[:,1],0], flowfield.velGrids[reduced[:,0],reduced[:,1],1], units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5)
 
+    # Correct velocity grids for circular domains - only needed since streamplot function takes axis as input rather than meshgrid coordinates
+    correctedVel = flowfield.velGrids[:,:,0:2]
+    print(correctedVel.shape)
+    correctedVel[np.dstack([flowfield.outside,flowfield.outside])] = 0
+
     # Make streamlines plot
     plt.figure()
     plt.gca().set_aspect('equal', adjustable='box')
     plt.title("Streamlines")
-    plt.streamplot(flowfield.coordGrids[1,:,0], flowfield.coordGrids[:,1,1], flowfield.velGrids[:,:,0], flowfield.velGrids[:,:,1], density=2)            # streamplot uses vector axis for xy instead of meshgrid for some reason?
+    # Need to take axis points from middle of grids in case the domain is circular
+    plt.streamplot(flowfield.coordGrids[int(gridDims[0]/2),:,0], flowfield.coordGrids[:,int(gridDims[1]/2),1], correctedVel[:,:,0], correctedVel[:,:,1], density=2)            # streamplot uses vector axis for xy instead of meshgrid for some reason?
 
 '''
 Create contour plots for density and pressure field
