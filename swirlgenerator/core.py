@@ -101,8 +101,8 @@ class Input:
         config.set('MESH DEFINITION', 'z_num_cells', '100')
 
         config.add_section('VORTEX DEFINITIONS')
-        config.set('VORTEX DEFINITIONS', '# Vortex model')
-        config.set('VORTEX DEFINITIONS', 'vortex_model', '2')
+        config.set('VORTEX DEFINITIONS', '# Vortex model [LO, solid, iso]')
+        config.set('VORTEX DEFINITIONS', 'vortex_model', 'LO')
         config.set('VORTEX DEFINITIONS', '# List of vortex data - for each vortex: (x-coord, y-coord, strength, radius[only for required for solid vortex])')
         config.set('VORTEX DEFINITIONS', 'vortex1', '(0.0, 0.0, 2.0)')
 
@@ -173,7 +173,7 @@ class Input:
 
             # Check present inputs
             try:
-                self.vortModel = int(vortexDefs.get('vortex_model'))
+                self.vortModel = vortexDefs.get('vortex_model')
             except KeyError:
                 raise KeyError(f"Non-optional vortex parameters are missing in file {configFile}")
 
@@ -262,7 +262,7 @@ class FlowField:
         vComps = uComps.copy()
 
         # Dictionary mapping for functions - will be faster then multiple if/else statements - also more readable code
-        vortexType = {1:self.__isoVortex__, 2:self.__loVortex__, 3:self.__solidVortex__}
+        vortexType = {'iso':self.__isoVortex__, 'LO':self.__loVortex__, 'solid':self.__solidVortex__}
 
         # Loop through given vortices and calculate their effect on each cell of the grid
         for i in range(vortDefs.strengths.shape[0]):
@@ -513,13 +513,13 @@ def main():
     Default behaviour to showcase tool - ideally the swirlGenerator functions should be called from external scripts
     '''
 
-    print("Generating generic bulk twin swirl profile (isentropic vortices)...")
+    print("Generating generic bulk twin swirl profile (Lamb-Oseen vortices)...")
 
     # Initialise flow field object with domain side lengths and number of cells
     flowField = FlowField([10,10],[100,100])
 
     # Initialise object to store data about multiple vortices
-    VortexDefs = Vortices(1, [[-2,0],[2,0]], [-5,5])
+    VortexDefs = Vortices('LO', [[-2,0],[2,0]], [-5,5])
 
     # Place vortices in domain
     flowField.defineVortices(VortexDefs, 5)
