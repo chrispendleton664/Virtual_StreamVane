@@ -46,7 +46,7 @@ class Vortices:
             raise IndexError(f"Index {self.vortNum} is out of bounds of vortex list with size {self.numVortices}")
         else:
             # Output tuple format 
-            data = (self.centres[vortexIndex], self.strengths[vortexIndex], self.radius[vortexIndex], self.axialVel[vortexIndex])
+            data = (self.centres[vortexIndex], self.strengths[vortexIndex], self.radius[vortexIndex], self.axialVel)
 
         return data 
 
