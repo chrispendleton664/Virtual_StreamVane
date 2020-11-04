@@ -2,6 +2,7 @@ from matplotlib.pyplot import plot
 import swirlgenerator.core as sg
 import swirlgenerator.writeBC as bc
 import swirlgenerator.maketestdomain as domain
+import swirlgenerator.plots as post
 import sys
 
 '''
@@ -87,8 +88,8 @@ if makemesh:
 
 # Save flow fields in pdf if requested
 if saveplots:
-    flowField.plotAll(plotsFile)
+    post.plotAll(flowField, plotsFile)
 
 # Show flow fields if requested
 if showFields:
-    flowField.plotAll()
+    post.plotAll(flowField)

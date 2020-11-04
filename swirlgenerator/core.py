@@ -1,6 +1,11 @@
-from matplotlib.pyplot import grid
+# -------------------------------------------------------------------------------------------------------------------
+#
+# Main module for creating the requested swirl profile
+# Also has functionality for comparing profiles
+#
+# -------------------------------------------------------------------------------------------------------------------
+
 import numpy as np
-from matplotlib import pyplot as plt
 from typing import Union
 from configparser import ConfigParser
 
@@ -271,6 +276,9 @@ class FlowField:
         # Stack velocity grids into multidimensional array
         self.velGrids = np.dstack([U,V,W])
 
+        # Get swirl angle
+        self.getSwirl()
+
     '''
     Function for outputting the effect of a simple isentropic vortex on the domain
     - edge of grid currently not a bounding wall, ie vortex is acting like it's in an infinite domain and grid is just a smple of this
@@ -354,62 +362,6 @@ class FlowField:
         return uComp, vComp
 
     '''
-    Utility for showing and saving all plots
-    '''
-    def plotAll(self, pdfName=None):
-        self.plotVelocity()
-
-        #plotThermos()
-
-        self.plotSwirl()
-
-        # If saving, don't show plots
-        if (pdfName != None):
-            self.__saveFigsToPdf__(pdfName)
-        else:
-            plt.show()
-
-        # Clear figures when done
-        plt.close('all')
-
-    '''
-    Create plots for the swirling velocity profile as a quiver plot and a streamlines plot
-    '''
-    def plotVelocity(self, maxNumArrows=30):
-        # Reduced indices of grids - so only a maximum of n^2 arrows will be plotted on the quiver plot
-        n = maxNumArrows
-        gridDims = self.coordGrids.shape
-        step = [int(gridDims[0]/n),int(gridDims[1]/n)]
-        step = [1 if s == 0 else s for s in step]               # Protection for when number of actual data points is less than maxNumArrows
-        reduced = np.mgrid[0:gridDims[0]:step[0],0:gridDims[1]:step[1]].reshape(2,-1).T
-
-        # Make quiver plot
-        plt.figure()
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.title("Quiver")
-        plt.quiver(self.coordGrids[reduced[:,0],reduced[:,1],0], self.coordGrids[reduced[:,0],reduced[:,1],1], self.velGrids[reduced[:,0],reduced[:,1],0], self.velGrids[reduced[:,0],reduced[:,1],1], units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5)
-
-        # Make streamlines plot
-        plt.figure()
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.title("Streamlines")
-        plt.streamplot(self.coordGrids[1,:,0], self.coordGrids[:,1,1], self.velGrids[:,:,0], self.velGrids[:,:,1], density=2)            # streamplot uses vector axis for xy instead of meshgrid for some reason?
-
-    '''
-    Create contour plots for density and pressure field
-    '''
-    def plotThermos(self):
-        plt.figure()
-        plt.title('Density')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.rho,100,cmap='jet')
-        plt.colorbar()
-
-        plt.figure()
-        plt.title('Pressure')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.pressure,100,cmap='jet')
-        plt.colorbar()
-
-    '''
     Get swirl angles
     '''
     def getSwirl(self):
@@ -430,44 +382,15 @@ class FlowField:
     Calculate Root Mean Square error between this flow field's swirl angle profile and a given one
     '''
     def getError(self, desiredSwirl):
-        # Make sure swirl angle profile has been computed for this FlowField
-        if self.swirlAngle is None:
-            self.getSwirl()
-
         RMSE = np.sqrt((1/np.size(self.swirlAngle))*np.sum((self.swirlAngle-desiredSwirl)**2))
 
         return RMSE
 
     '''
-    Create contour plot for swirl angle
-    '''
-    def plotSwirl(self):
-        # Make sure swirl angle profile has been computed for this FlowField
-        if self.swirlAngle is None:
-            self.getSwirl()
-
-        # Make contour plot
-        plt.figure()
-        plt.title('Swirl angle')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.swirlAngle,100,cmap='jet')
-        plt.colorbar()
-
-    '''
-    Save all current figures into a multi-page pdf
-    '''
-    def __saveFigsToPdf__(self, outputFile):
-        from matplotlib.backends.backend_pdf import PdfPages
-
-        with PdfPages(outputFile) as pdf:
-            # Go through all active figures and save to a separate pdf page
-            for fig in range(1, plt.gcf().number+1):
-                pdf.savefig(fig)
-
-    '''
     Wrapper function for saving the flow field - so that calling script does not need to import numpy just for this
     '''
     def save(self, outputFile):
-        np.savez(outputFile, velGrids=self.velGrids, rho=self.rho, pressure=self.pressure)
+        np.savez(outputFile, velGrids=self.velGrids, rho=self.rho, pressure=self.pressure, swirl=self.swirlAngle)
 
     '''
     Unpacks zipped archive file created by saveFlowField() and returns the numpy arrays in the familiar format
@@ -477,10 +400,11 @@ class FlowField:
         npzfile = np.load(file)
 
         # Check if correct format
-        if ('velGrids' in npzfile and 'rho' in npzfile and 'pressure' in npzfile):
+        if ('velGrids' in npzfile and 'rho' in npzfile and 'pressure' in npzfile and 'swirl' in npzfile):
             self.velGrids    = npzfile['velGrids']
             self.rho         = npzfile['rho']
             self.pressure    = npzfile['pressure']
+            self.swirlAngle  = npzfile['swirl']
 
         else:
             raise RuntimeError('File format/contents invalid - make sure this file was created by swirlGenerator.saveFigsToPdf')
