@@ -47,7 +47,6 @@ def plotVelocity(flowfield, maxNumArrows=30):
 
     # Correct velocity grids for circular domains - only needed since streamplot function takes axis as input rather than meshgrid coordinates
     correctedVel = flowfield.velGrids[:,:,0:2]
-    print(correctedVel.shape)
     correctedVel[np.dstack([flowfield.outside,flowfield.outside])] = 0
 
     # Make streamlines plot
