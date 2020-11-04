@@ -71,45 +71,6 @@ class Input:
         self.vortRadius = []
         self.axialVel = None
 
-    # For creating an example configuration file that's compatible with this module
-    def writeExample(self):
-        # Intialise config parser object
-        config = ConfigParser(allow_no_value=True)
-
-        # Fill object with sections and keys
-        config.add_section('METADATA')
-        config.set('METADATA', '# Name of inlet boundary condition output file')
-        config.set('METADATA', 'filename', 'example.dat')
-        config.set('METADATA', '# Which cfd framework to format the file for (su2, )')
-        config.set('METADATA', 'format', 'su2')
-
-        config.add_section('MESH DEFINITION')
-        config.set('MESH DEFINITION', '# Side lengths of inlet face (width, height)')
-        config.set('MESH DEFINITION', 'x_side', '10.0')
-        config.set('MESH DEFINITION', 'y_side', '10.0')
-        config.set('MESH DEFINITION', '# (Optional) Define z length of domain if also generating the test meshed domain')
-        config.set('MESH DEFINITION', 'z_side', '20.0')
-        config.set('MESH DEFINITION', '# Number of mesh cells along each side')
-        config.set('MESH DEFINITION', 'x_num_cells', '100')
-        config.set('MESH DEFINITION', 'y_num_cells', '100')
-        config.set('MESH DEFINITION', '# (Optional) Define z mesh if also generating the test meshed domain')
-        config.set('MESH DEFINITION', 'z_num_cells', '200')
-
-        config.add_section('VORTEX DEFINITIONS')
-        config.set('VORTEX DEFINITIONS', '# Vortex model [LO, solid, iso]')
-        config.set('VORTEX DEFINITIONS', 'vortex_model', 'LO')
-        config.set('VORTEX DEFINITIONS', '# List of vortex data - for each vortex: (x-coord, y-coord, strength, core radius)')
-        config.set('VORTEX DEFINITIONS', 'vortex1', '(0.0, 0.0, 1.0, 0.1)')
-
-        config.add_section('EXTRA')
-        config.set('EXTRA', '# Uniform axial (streamwise) velocity of inlet (default is 1)')
-        config.set('EXTRA', 'axial_vel', '1.0')
-
-        # Write to file
-        with open('example.config', 'w') as file:
-            config.write(file)
-
-
     def read(self, configFile):
         # Initialise config parser and read config file
         config = ConfigParser()
