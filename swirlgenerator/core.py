@@ -1,3 +1,4 @@
+from matplotlib.pyplot import grid
 import numpy as np
 from matplotlib import pyplot as plt
 from typing import Union
@@ -22,7 +23,7 @@ Each vortex can be defined as a different type
 class Vortices: 
     # Object constructor accepts lists also for convenience, then later converts to numpy arrays
     def __init__(self, model: int, centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray],
-                       radius: Union[list, np.ndarray] = [], axialVel: Union[list, np.ndarray] = []):
+                       radius: Union[list, np.ndarray], axialVel: Union[list, np.ndarray] = []):
 
         self.numVortices    = len(strengths)
 
@@ -31,7 +32,7 @@ class Vortices:
         # Make sure these are all numpy arrays not just lists
         self.centres        = (centres      if isinstance(centres,np.ndarray)   else np.array(centres))       # Vortex centre
         self.strengths      = (strengths    if isinstance(strengths,np.ndarray) else np.array(strengths))     # Vortex strength
-        self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex radius - can define a strong edge to the vortex, it has no effect on the flow outside this
+        self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex core radius - where the majority of vorticity is concentrated
         self.axialVel       = (axialVel     if isinstance(axialVel,np.ndarray)  else np.array(axialVel))      # Uniform axial velcoity - only needed for forced swirl type
 
         self.vortNum        = 0             # For keeping track during iteration
@@ -50,7 +51,7 @@ class Vortices:
             if (self.model == 3):
                 data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum], self.axialVel[self.vortNum])
             else:
-                data = (self.centres[self.vortNum], self.strengths[self.vortNum])
+                data = (self.centres[self.vortNum], self.strengths[self.vortNum], self.radius[self.vortNum])
 
             self.vortNum += 1
 
@@ -90,21 +91,21 @@ class Input:
 
         config.add_section('MESH DEFINITION')
         config.set('MESH DEFINITION', '# Side lengths of inlet face (width, height)')
-        config.set('MESH DEFINITION', 'x_side', '1.0')
-        config.set('MESH DEFINITION', 'y_side', '1.0')
+        config.set('MESH DEFINITION', 'x_side', '10.0')
+        config.set('MESH DEFINITION', 'y_side', '10.0')
         config.set('MESH DEFINITION', '# (Optional) Define z length of domain if also generating the test meshed domain')
-        config.set('MESH DEFINITION', 'z_side', '5.0')
+        config.set('MESH DEFINITION', 'z_side', '20.0')
         config.set('MESH DEFINITION', '# Number of mesh cells along each side')
-        config.set('MESH DEFINITION', 'x_num_cells', '20')
-        config.set('MESH DEFINITION', 'y_num_cells', '20')
+        config.set('MESH DEFINITION', 'x_num_cells', '100')
+        config.set('MESH DEFINITION', 'y_num_cells', '100')
         config.set('MESH DEFINITION', '# (Optional) Define z mesh if also generating the test meshed domain')
-        config.set('MESH DEFINITION', 'z_num_cells', '100')
+        config.set('MESH DEFINITION', 'z_num_cells', '200')
 
         config.add_section('VORTEX DEFINITIONS')
         config.set('VORTEX DEFINITIONS', '# Vortex model [LO, solid, iso]')
         config.set('VORTEX DEFINITIONS', 'vortex_model', 'LO')
-        config.set('VORTEX DEFINITIONS', '# List of vortex data - for each vortex: (x-coord, y-coord, strength, radius[only for required for solid vortex])')
-        config.set('VORTEX DEFINITIONS', 'vortex1', '(0.0, 0.0, 2.0)')
+        config.set('VORTEX DEFINITIONS', '# List of vortex data - for each vortex: (x-coord, y-coord, strength, core radius)')
+        config.set('VORTEX DEFINITIONS', 'vortex1', '(0.0, 0.0, 1.0, 0.1)')
 
         config.add_section('EXTRA')
         config.set('EXTRA', '# Uniform axial (streamwise) velocity of inlet (default is 1)')
@@ -183,14 +184,12 @@ class Input:
                     for i in range(1,numVortices+1):
                         data = list(float(numString) for numString in vortexDefs.get(f"vortex{i}")[1:-1].split(','))
 
-                        if (len(data) < 3):
+                        if (len(data) < 4):
                             raise SyntaxError(f"Invalid number of parameters when defining vortex {i}")
 
                         self.vortCoords.append(data[0:2])
                         self.vortStrengths.append(data[2])
-
-                        if (len(data) > 3):
-                            self.vortRadius.append(data[3])
+                        self.vortRadius.append(data[3])
 
                 except ValueError:
                     raise ValueError(f"Invalid values defined for vortex parameters")
@@ -298,9 +297,7 @@ class FlowField:
 
     '''
     Function for outputting the effect of a Lamb-Oseen vortex
-    - using adapted equations from StreamVane paper, generalised for an arbitrary number of vortices at arbitrary positions
-    ------- Equations from StreamVane paper has slight error for v velocity component, correct here
-    - Generic twin swirl profile can be created with by placing two vortices with parameters from paper
+    - using equations given by Brandt (2009)
 
     vortData - tuple produced by getNextVortex() function of Vortices class
     '''
@@ -389,6 +386,7 @@ class FlowField:
         n = maxNumArrows
         gridDims = self.coordGrids.shape
         step = [int(gridDims[0]/n),int(gridDims[1]/n)]
+        step = [1 if s == 0 else s for s in step]               # Protection for when number of actual data points is less than maxNumArrows
         reduced = np.mgrid[0:gridDims[0]:step[0],0:gridDims[1]:step[1]].reshape(2,-1).T
 
         # Make quiver plot
@@ -409,12 +407,12 @@ class FlowField:
     def plotThermos(self):
         plt.figure()
         plt.title('Density')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.rho,50,cmap='jet')
+        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.rho,100,cmap='jet')
         plt.colorbar()
 
         plt.figure()
         plt.title('Pressure')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.pressure,50,cmap='jet')
+        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.pressure,100,cmap='jet')
         plt.colorbar()
 
     '''
@@ -457,7 +455,7 @@ class FlowField:
         # Make contour plot
         plt.figure()
         plt.title('Swirl angle')
-        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.swirlAngle,50,cmap='jet')
+        plt.contourf(self.coordGrids[:,:,0],self.coordGrids[:,:,1],self.swirlAngle,100,cmap='jet')
         plt.colorbar()
 
     '''
