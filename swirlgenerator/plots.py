@@ -79,7 +79,7 @@ def plotSwirl(flowfield):
     maxVal = np.ceil(flowfield.swirlAngle.max()  / 10) * 10
 
     # Make ticks for colormap
-    ticks = np.linspace(minVal,maxVal,num=5)
+    ticks = np.arange(minVal,maxVal,5)
 
     # Make contour plot
     plt.figure()

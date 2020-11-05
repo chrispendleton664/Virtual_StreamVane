@@ -288,8 +288,8 @@ class FlowField:
         # Get radius of each cell from centre of this vortex
         rr = (x-xc)**2 + (y-yc)**2
 
-        # Get omega, the peak magnitude of vorticity
-        omega = strength/(np.pi * a0**2)
+        # Get omega, the peak magnitude of vorticity (positive counterclockwise)
+        omega = -strength/(np.pi * a0**2)
 
         # Velocity components due to this vortex
         uComp = 0.5  * (a0**2 * omega * (y - yc) / rr) * (1 - np.exp(-rr/a0**2))
