@@ -8,6 +8,7 @@
 import numpy as np
 from typing import Union
 from configparser import ConfigParser
+import string
 
 '''
 Heavy use of numpy for fast matrix and vector operations
@@ -132,7 +133,7 @@ class Input:
 
             # Check present inputs
             try:
-                self.vortModel = vortexDefs.get('vortex_model')
+                self.vortModel = string.lower(vortexDefs.get('vortex_model'))
             except KeyError:
                 raise KeyError(f"Non-optional vortex parameters are missing in file {configFile}")
 
@@ -235,7 +236,7 @@ class FlowField:
         vComps = uComps.copy()
 
         # Dictionary mapping for functions - will be faster then multiple if/else statements - also more readable code
-        vortexType = {'iso':self.__isoVortex__, 'LO':self.__loVortex__, 'solid':self.__solidVortex__}
+        vortexType = {'iso':self.__isoVortex__, 'lo':self.__loVortex__, 'solid':self.__solidVortex__}
 
         # Loop through given vortices and calculate their effect on each cell of the grid
         for i in range(vortDefs.strengths.shape[0]):
