@@ -5,3 +5,4 @@ __pycache__
 *.su2
 swirlGenerator.egg-info
 testharness.py
+testcases/Vel_Profiles
