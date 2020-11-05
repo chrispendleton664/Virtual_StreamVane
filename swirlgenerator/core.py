@@ -8,7 +8,6 @@
 import numpy as np
 from typing import Union
 from configparser import ConfigParser
-import string
 
 '''
 Heavy use of numpy for fast matrix and vector operations
@@ -133,7 +132,7 @@ class Input:
 
             # Check present inputs
             try:
-                self.vortModel = string.lower(vortexDefs.get('vortex_model'))
+                self.vortModel = vortexDefs.get('vortex_model').lower()
             except KeyError:
                 raise KeyError(f"Non-optional vortex parameters are missing in file {configFile}")
 
