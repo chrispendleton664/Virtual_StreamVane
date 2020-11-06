@@ -74,12 +74,21 @@ def plotThermos(flowfield):
 Create contour plot for swirl angle
 '''
 def plotSwirl(flowfield):
+    # Get maximum magnitude of swirl angle
+    maxMag = max([abs(flowfield.swirlAngle.min()), flowfield.swirlAngle.max()])
+    # Choose appropriate 'round to the nearest'
+    if maxMag < 5:
+        rounding = 1
+    elif maxMag < 10:
+        rounding = 5
+    else:
+        rounding = 10
     # Round max/min values to create range of swirl angles
-    minVal = np.floor(flowfield.swirlAngle.min() / 10) * 10
-    maxVal = np.ceil(flowfield.swirlAngle.max()  / 10) * 10
+    minVal = np.floor(flowfield.swirlAngle.min() / rounding) * rounding
+    maxVal = np.ceil(flowfield.swirlAngle.max()  / rounding) * rounding
 
     # Make ticks for colormap
-    ticks = np.arange(minVal,maxVal,5)
+    ticks = np.arange(minVal,maxVal,rounding)
 
     # Make contour plot
     plt.figure()
