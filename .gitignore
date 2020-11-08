@@ -6,3 +6,4 @@ __pycache__
 swirlGenerator.egg-info
 testharness.py
 testcases/Vel_Profiles
+*.zip
