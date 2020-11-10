@@ -168,9 +168,8 @@ class Input:
                 pass
 
         # Set defaults if values weren't set
-        self.axialVel   = [1.0 if self.axialVel is None else self.axialVel]
-        self.shape      = ['square' if self.shape is None else self.shape]
-
+        self.axialVel   = (1.0 if self.axialVel is None else self.axialVel)
+        self.shape      = ('square' if self.shape is None else self.shape)
 
 '''
 Class containing data and functions relevant to the flow field
@@ -191,7 +190,7 @@ class FlowField:
 
         # If a circular domain is requested - make the coordinates of the cells outside the circle close to zero (not actually zero to avoid division by zero warnings)
         # Not an ideal solution since still computing cells that are supposed to be outside the domain
-        if 'circle' in self.shape:
+        if self.shape == 'circle':
             domainRadius = min(self.sideLengths)/2      # Take domain diameter from shortest side of rectangular domain
             radius = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
             self.outside = radius > domainRadius
@@ -209,8 +208,8 @@ class FlowField:
     # Stores coords of mesh nodes rather than cell centres
     def makeGrid(self):
         # Create coordinate system from mesh info - domain is centered at 0, I think makes for more intuitive definition of vortex positions
-        x = np.linspace(-self.sideLengths[0]/2, self.sideLengths[0]/2, self.numCells[0]+1)
-        y = np.linspace(-self.sideLengths[1]/2, self.sideLengths[1]/2, self.numCells[1]+1)
+        x = np.linspace(-self.sideLengths[0]/2, self.sideLengths[0]/2, self.numCells[0]+1)      # x-axis is positive to the right
+        y = np.linspace(self.sideLengths[1]/2, -self.sideLengths[1]/2, self.numCells[1]+1)      # y-axis is positive upwards
 
         # Protection for division by zero later - better solution than this?
         x[x == 0] = 1e-32
@@ -226,10 +225,11 @@ class FlowField:
 
     '''
     Generic multiple vortices function
-    Calculates the velocity and thermodynamic fields
+    Calculates the velocity field by superimposing the effect of the individual vortices
+    Solid boundaries are modelled using the method of images
     vortDefs - Vortices object; axialVel - uniform axial velocity to be applied; density - if defined, assume that flow is incompressible
     '''
-    def defineVortices(self, vortDefs: Vortices, axialVel, density = None):
+    def computeDomain(self, vortDefs: Vortices, axialVel, density = None):
         # Intialise 3D arrays to store multiple meshgrids - one for the component effect of each vortex
         uComps = np.zeros(np.append(self.coordGrids[:,:,0].shape, vortDefs.strengths.shape[0]))
         vComps = uComps.copy()
@@ -244,6 +244,10 @@ class FlowField:
             # Call vortex function to fill component arrays - with data for a single vortex
             uComps[:,:,i], vComps[:,:,i] = func(vortDefs.getVortex(i))
 
+            # Calculate the effect of solid walls on this vortex using mirror image vortices
+            #uComps[:,:,i], vComps[:,:,i] = self.__boundary__(vortDefs.getVortex(i), uComps[:,:,i], vComps[:,:,i], func)
+
+
         # Collate effects of each vortex
         U = np.sum(uComps,axis=2)
         V = np.sum(vComps,axis=2)
@@ -256,6 +260,50 @@ class FlowField:
 
         # Get swirl angle
         self.getSwirl()
+
+    '''
+    Models the effect of a solid wall on a vortex by placing a symmetric vortex
+    Effect of these symmetric vortices are superimposed onto the input arrays
+    WIP ---- DOES NOT CUURENTLY WORK CORRECTLY
+    '''
+    def __boundary__(self, vortData, uComp, vComp, vortexFunc):
+        if self.shape == 'square':
+            # Boundary locations - [Top wall, bottom wall, right wall, left wall] - extra 'boundaries' to create the image vortices in the corners needed to balance out the extra vorticity
+            # boundaries = [[0,self.sideLengths[1]/2],[0,-self.sideLengths[1]/2],[self.sideLengths[0]/2,0],[-self.sideLengths[0]/2,0],
+            #               [self.sideLengths[0]/2,self.sideLengths[1]/2], [-self.sideLengths[0]/2,-self.sideLengths[1]/2],
+            #               [-self.sideLengths[0]/2,self.sideLengths[1]/2], [self.sideLengths[0]/2,-self.sideLengths[1]/2]]
+            boundaries = [[0,self.sideLengths[1]/2], [self.sideLengths[0]/2,0], [self.sideLengths[0]/2,self.sideLengths[1]/2],
+                          [0,-self.sideLengths[1]/2], [-self.sideLengths[0]/2,0], [-self.sideLengths[0]/2,-self.sideLengths[1]/2]]
+
+            for boundary in boundaries:
+                # Get coordinates of image vortex - double distance from boundary plus original coords of vortex
+                imageXc = (boundary[0] - vortData[0][0])*2 + vortData[0][0]
+                imageYc = (boundary[1] - vortData[0][1])*2 + vortData[0][1]
+
+                # Check if this is a corner boundary - since this image vortex's strength will be of same sign as the real vortex
+                corner = (False if 0 in boundary else True)
+
+                # Create new array for this mirror vortex to be passed on to the appropriate vortex model function
+                imageVortData = list(vortData)
+                imageVortData[0] = [imageXc,imageYc]
+                imageVortData[1] = (imageVortData[1] if corner else -imageVortData[1])
+
+                print(f'image vortex @ {imageVortData[0]}, with strength {imageVortData[1]}')
+
+                # Get effect of image vortex on grid
+                uBoundary, vBoundary = vortexFunc(tuple(imageVortData))
+
+                # Superimpose effect
+                uComp += uBoundary
+                vComp += vBoundary
+
+
+        elif self.shape == 'circle':
+            raise NotImplementedError('Circular outer boundary not yet implemented')
+        else:
+            raise NotImplementedError('Duct shape not valid')
+
+        return uComp, vComp
 
     '''
     Function for outputting the effect of a simple isentropic vortex on the domain
@@ -338,6 +386,43 @@ class FlowField:
         vComp =  r*theta_dot*np.cos(theta)
 
         return uComp, vComp
+
+    '''
+    For verifying physically correct boundary conditions after applying the method of images to model the solid boundaries
+    ie checking if there is any flow across the solid boundaries and no slip condition:
+    V_normal = 0, V_tangential = V_wall = 0
+    '''
+    def checkBoundaries(self):
+        boundary_ok = True
+
+        if self.shape == 'square':
+            # Check top wall
+            if (any(self.velGrids[0,:,1] != 0)):
+                boundary_ok = False
+                print('Boundary broken, flow through top wall:')
+                print(self.velGrids[0,:,1])
+            # Check bottom wall
+            if (any(self.velGrids[-1,:,1] != 0)):
+                boundary_ok = False
+                print('Boundary broken, flow through bottom wall:')
+                print(self.velGrids[-1,:,1])
+            # Check right wall
+            if (any(self.velGrids[:,-1,0] != 0)):
+                boundary_ok = False
+                print('Boundary broken, flow through right wall:')
+                print(self.velGrids[:,-1,0])
+            # Check left wall
+            if (any(self.velGrids[:,0,0] != 0)):
+                boundary_ok = False
+                print('Boundary broken, flow through left wall:')
+                print(self.velGrids[:,0,0])
+
+        elif self.shape == 'circle':
+            raise NotImplementedError('Circle boundary check has not yet been implemented')
+        else:
+            raise NotImplementedError(f'\'{self.shape}\' boundary not valid')
+
+        return boundary_ok
 
     '''
     Get swirl angles

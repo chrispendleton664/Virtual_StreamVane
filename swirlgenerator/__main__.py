@@ -24,6 +24,9 @@ else:
     else:
         configFile = sys.argv[1]
 
+    # Check validity of boundary conditions
+    checkboundaries = (True if '-checkboundaries' in sys.argv else False)
+
     # Make meshed test domain
     if '-makemesh' in sys.argv:
         # Get index of this command line arguement
@@ -83,7 +86,11 @@ else:
     vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths, inputData.vortRadius, inputData.axialVel)
 
     # Calculate velocity field
-    flowField.defineVortices(vortexDefs, axialVel=inputData.axialVel)
+    flowField.computeDomain(vortexDefs, axialVel=inputData.axialVel)
+
+    # Verify boundary conditions if requested
+    if checkboundaries:
+        flowField.checkBoundaries()
 
     # Write inlet boundary condition file
     bc.writeInlet(InputObject=inputData, flowField=flowField)
