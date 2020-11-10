@@ -268,25 +268,26 @@ class FlowField:
     '''
     def __boundary__(self, vortData, uComp, vComp, vortexFunc):
         if self.shape == 'square':
-            # Boundary locations - [Top wall, bottom wall, right wall, left wall] - extra 'boundaries' to create the image vortices in the corners needed to balance out the extra vorticity
-            # boundaries = [[0,self.sideLengths[1]/2],[0,-self.sideLengths[1]/2],[self.sideLengths[0]/2,0],[-self.sideLengths[0]/2,0],
-            #               [self.sideLengths[0]/2,self.sideLengths[1]/2], [-self.sideLengths[0]/2,-self.sideLengths[1]/2],
-            #               [-self.sideLengths[0]/2,self.sideLengths[1]/2], [self.sideLengths[0]/2,-self.sideLengths[1]/2]]
-            boundaries = [[0,self.sideLengths[1]/2], [self.sideLengths[0]/2,0], [self.sideLengths[0]/2,self.sideLengths[1]/2],
-                          [0,-self.sideLengths[1]/2], [-self.sideLengths[0]/2,0], [-self.sideLengths[0]/2,-self.sideLengths[1]/2]]
+            # Get distance of vortex from walls - defined starting with bottom wall, going clockwise
+            vortXc, vortYc = vortData[0]
+            boundaryDist = [-self.sideLengths[1]/2-vortYc, -self.sideLengths[0]/2-vortXc, self.sideLengths[1]/2-vortYc, self.sideLengths[0]/2-vortXc]
+            boundaryDist = list(map(abs,boundaryDist))  # Magnitudes
+       
+            # Place image vortices outside the domain - such that the bounday conditions are met while keeping the total circulation of the unbounded domain equalt to 0
+            imageVortO = [[vortXc, vortYc-(2*boundaryDist[0])], 
+                          [vortXc-(2*boundaryDist[1]), vortYc], 
+                          [vortXc-(2*boundaryDist[1]), vortYc-(2*boundaryDist[0])],
+                          [vortXc, vortYc+(2*boundaryDist[1])],
+                          [vortXc, vortYc+(3*boundaryDist[1])],
+                          [vortXc+(2*boundaryDist[3]), vortYc],
+                          [vortXc+(3*boundaryDist[3]), vortYc]]
+            imageVortS = [-vortData[1],-vortData[1],vortData[1],-vortData[1],vortData[1],-vortData[1],vortData[1]]
 
-            for boundary in boundaries:
-                # Get coordinates of image vortex - double distance from boundary plus original coords of vortex
-                imageXc = (boundary[0] - vortData[0][0])*2 + vortData[0][0]
-                imageYc = (boundary[1] - vortData[0][1])*2 + vortData[0][1]
-
-                # Check if this is a corner boundary - since this image vortex's strength will be of same sign as the real vortex
-                corner = (False if 0 in boundary else True)
-
-                # Create new array for this mirror vortex to be passed on to the appropriate vortex model function
+            for i in range(len(imageVortS)):
+                # Create new array for this image vortex to be passed on to the appropriate vortex model function
                 imageVortData = list(vortData)
-                imageVortData[0] = [imageXc,imageYc]
-                imageVortData[1] = (imageVortData[1] if corner else -imageVortData[1])
+                imageVortData[0] = imageVortO[i]
+                imageVortData[1] = imageVortS[i]
 
                 print(f'image vortex @ {imageVortData[0]}, with strength {imageVortData[1]}')
 
