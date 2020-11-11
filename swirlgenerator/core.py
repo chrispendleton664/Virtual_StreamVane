@@ -191,32 +191,24 @@ class Input:
 
         # Set defaults if values weren't set
         self.axialVel   = (1.0 if self.axialVel is None else self.axialVel)
-        self.shape      = ('square' if self.shape is None else self.shape)
 
 '''
 Class containing data and functions relevant to the flow field
+Initialised with an Input object
 '''
 class FlowField:
-    def __init__(self, sideLengths=[10,10], numCells=[100,100], shape='square'):
-        # Flow field descretisation descriptions
-        self.shape = shape
-        self.sideLengths = sideLengths
-        self.numCells = numCells
-        self.cellSides = np.divide(self.sideLengths,self.numCells)
+    def __init__(self, InputData: Input):
+        # Get flow field descretisation descriptions from input object
+        self.shape = InputData.shape
+        self.radius = InputData.radius
 
-        # Create coordinate grids of flow field mesh cells
-        self.coordGrids = self.makeGrid()
-
-        # Store boolean array indicating which cells are outside - can't recalculate since the cells outside domain will be given coords of [1e-32,1e-32]
-        self.outside = np.zeros(self.coordGrids.shape[0:2], dtype=bool)
-
-        # If a circular domain is requested - make the coordinates of the cells outside the circle close to zero (not actually zero to avoid division by zero warnings)
-        # Not an ideal solution since still computing cells that are supposed to be outside the domain
-        if self.shape == 'circle':
-            domainRadius = min(self.sideLengths)/2      # Take domain diameter from shortest side of rectangular domain
-            radius = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
-            self.outside = radius > domainRadius
-            self.coordGrids[np.dstack([self.outside,self.outside])] = 1e-32
+        if InputData.xSide is not None:
+            self.sideLengths = np.array([InputData.xSide, InputData.ySide])
+        else:
+            # If circular domain, still need side lengths for defining the grid
+            self.sideLengths = np.array([InputData.radius*2, InputData.radius*2])
+        
+        self.numCells = np.array([InputData.xNumCells, InputData.yNumCells])
 
         # Initialise the actual flow field variables
         self.velGrids   = None
@@ -226,8 +218,29 @@ class FlowField:
         # Some comparison and metrics
         self.swirlAngle = None
 
-    # Make meshgrids to store coordinate system; as a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
-    # Stores coords of mesh nodes rather than cell centres
+        # Side lengths of each cell - using np.divide here also serves to automatically convert python lists into numpy arrays
+        if self.shape == 'rect':
+            # For rectangular domain, simple calculation
+            self.cellSides = np.divide(self.sideLengths,self.numCells)
+        elif self.shape == 'circle':
+            # For circular domain, diameter (equal to grid side length) is used
+            self.cellSides = np.divide(self.radius*2,self.numCells)
+        else:
+            raise NotImplementedError('Invalid domain shape \'{self.shape}\'')
+
+        # Create coordinate grid which will contain the domain, also store axis ticks (may not be recoverable from coordinate grids depending on domain shape)
+        self.coordGrids, self.axis = self.makeGrid()
+
+        # Set domain boundary and mask to get all cells within domain
+        self.mask, self.boundaryCells = self.setDomain()
+
+        # Set cells outside domain to nan so that the flow field there is not unnecessarily calculated
+        self.coordGrids[np.invert(np.dstack([self.mask,self.mask]))] = np.nan
+
+    '''
+    Make meshgrids to store coordinate system; as a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
+    Stores coords of mesh nodes rather than cell centres
+    '''
     def makeGrid(self):
         # Create coordinate system from mesh info - domain is centered at 0, I think makes for more intuitive definition of vortex positions
         x = np.linspace(-self.sideLengths[0]/2, self.sideLengths[0]/2, self.numCells[0]+1)      # x-axis is positive to the right
@@ -243,7 +256,48 @@ class FlowField:
         # Stack grids into a 3D array, for convenience when passing between functions - not sure about performance effect, better or worse or negligible?
         coordGrids = np.dstack([X,Y])
 
-        return coordGrids
+        # Stack axis ticks
+        axis = np.vstack([x,y])
+
+        return coordGrids, axis
+
+    ''' 
+    Create a mask to specify the domain shape and borders within the meshgrid
+    Outputs two boolean arrays, mask and boundary - mask is true when cell is within the boundary, boundary is true when cell is at the boundary
+    '''
+    def setDomain(self):
+        if self.shape == 'circle':
+            # Radius of each cell from origin
+            radius = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
+
+            # Get mask using inequality - add buffer so that circular domain edges touch grid edges, since working with nodes rather than cell centres
+            #mask = radius < self.radius + self.cellSides[0]
+            # Get mask using inequality
+            ''' Consider changing this since it includes singular points at the extremes '''
+            mask = radius < self.radius
+            # Get boundary using equality with a tolerance since discrete space
+            boundary = abs(radius - self.radius) < self.cellSides[0]/2
+
+        elif self.shape == 'rect':
+            # All cells are within boundary when rectangular domain shape
+            mask = np.ones(self.coordGrids.shape[0:2], dtype=bool)
+
+            # Boundary cells are simply those at the edges
+            boundary = np.zeros(mask.shape, dtype=bool)
+            boundary[1:-1,1:-1] = True
+
+        else:
+            raise NotImplementedError(f'Domain shape \'{self.shape}\' not valid')
+
+        # Show boundary for debugging
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.imshow(mask)
+        # plt.figure()
+        # plt.imshow(boundary)
+        # plt.show()
+
+        return mask, boundary
 
     '''
     Generic multiple vortices function
@@ -256,7 +310,7 @@ class FlowField:
         uComps = np.zeros(np.append(self.coordGrids[:,:,0].shape, vortDefs.strengths.shape[0]))
         vComps = uComps.copy()
 
-        # Dictionary mapping for functions - will be faster then multiple if/else statements - also more readable code
+        # Dictionary mapping for functions - will be faster than multiple if/else statements - also more readable code
         vortexType = {'iso':self.__isoVortex__, 'lo':self.__loVortex__, 'solid':self.__solidVortex__}
 
         # Loop through given vortices and calculate their effect on each cell of the grid
@@ -289,7 +343,7 @@ class FlowField:
     WIP ---- DOES NOT CUURENTLY WORK CORRECTLY
     '''
     def __boundary__(self, vortData, uComp, vComp, vortexFunc):
-        if self.shape == 'square':
+        if self.shape == 'rect':
             # Get distance of vortex from walls - defined starting with bottom wall, going clockwise
             vortXc, vortYc = vortData[0]
             boundaryDist = [-self.sideLengths[1]/2-vortYc, -self.sideLengths[0]/2-vortXc, self.sideLengths[1]/2-vortYc, self.sideLengths[0]/2-vortXc]
@@ -371,9 +425,7 @@ class FlowField:
     '''
     Function for outputting the effect of a forced vortex
     - linear increase in swirl angle from center to outer edge
-    - swirl angle defined as angle between resultant vector and axial velocity component (cause by tangential component velocity)
     - solid/forced vortex - not realistic; ie instantaneously created vortex, no effect on cells outside it's radius
-    - also assumes no radial velocity
 
     vortData - tuple produced by getNextVortex() function of Vortices class
     '''
@@ -390,13 +442,14 @@ class FlowField:
 
         # Normalise radius for straightforward angle calculation and set cells outside vortex size to 0
         rNorm = r/vortData[2]
-        rNorm[(rNorm > 1)] = 0
+        # Add some tolerance to the equality to smooth out circle because discretised as nodes
+        rNorm[np.nan_to_num(rNorm) > 1] = 0
 
         # Get swirl angle distribution
         swirlAngles = maxSwirlAngle*rNorm
 
         # Transform so swirl is coherent (either clockwise or anticlockwise) - without this, the swirl profile produced is mirrored about the y axis
-        swirlAngles[(self.coordGrids[:,:,0] * anitclockwise < 0)] = swirlAngles[(self.coordGrids[:,:,0] * anitclockwise < 0)] * -1
+        swirlAngles[(np.nan_to_num(self.coordGrids[:,:,0] * anitclockwise) < 0)] = swirlAngles[(np.nan_to_num(self.coordGrids[:,:,0] * anitclockwise) < 0)] * -1
 
         # Get tangential velocity at each cell
         tangentVel = vortData[3]*np.tan(swirlAngles)
@@ -418,7 +471,7 @@ class FlowField:
     def checkBoundaries(self):
         boundary_ok = True
 
-        if self.shape == 'square':
+        if self.shape == 'rect':
             # Check top wall
             if (any(self.velGrids[0,:,1] != 0)):
                 boundary_ok = False

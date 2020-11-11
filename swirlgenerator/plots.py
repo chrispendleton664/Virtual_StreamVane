@@ -46,15 +46,16 @@ def plotVelocity(flowfield, maxNumArrows=30):
     plt.quiver(flowfield.coordGrids[reduced[:,0],reduced[:,1],0], flowfield.coordGrids[reduced[:,0],reduced[:,1],1], flowfield.velGrids[reduced[:,0],reduced[:,1],0], flowfield.velGrids[reduced[:,0],reduced[:,1],1], units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5)
 
     # Correct velocity grids for circular domains - only needed since streamplot function takes axis as input rather than meshgrid coordinates
-    correctedVel = flowfield.velGrids[:,:,0:2]
-    correctedVel[np.dstack([flowfield.outside,flowfield.outside])] = 0
+    # correctedVel = flowfield.velGrids[:,:,0:2]
+    # correctedVel[np.dstack([flowfield.outside,flowfield.outside])] = 0
 
     # Make streamlines plot
     plt.figure()
     plt.gca().set_aspect('equal', adjustable='box')
     plt.title("Streamlines")
     # Need to take axis points from middle of grids in case the domain is circular
-    plt.streamplot(flowfield.coordGrids[int(gridDims[0]/2),:,0], flowfield.coordGrids[:,int(gridDims[1]/2),1], correctedVel[:,:,0], correctedVel[:,:,1], density=2)            # streamplot uses vector axis for xy instead of meshgrid for some reason?
+    #plt.streamplot(flowfield.coordGrids[int(gridDims[0]/2),:,0], flowfield.coordGrids[:,int(gridDims[1]/2),1], correctedVel[:,:,0], correctedVel[:,:,1], density=2)            # streamplot uses vector axis for xy instead of meshgrid for some reason?
+    plt.streamplot(flowfield.axis[0], flowfield.axis[1], flowfield.velGrids[:,:,0], flowfield.velGrids[:,:,1], density=2)            # streamplot uses vector axis for xy instead of meshgrid for some reason?
 
 '''
 Create contour plots for density and pressure field
@@ -74,8 +75,12 @@ def plotThermos(flowfield):
 Create contour plot for swirl angle
 '''
 def plotSwirl(flowfield):
+    # Convert nans to zero so that max/min operations don't result in nan
+    swirlAngle = np.nan_to_num(flowfield.swirlAngle)
+    coordGrids = np.nan_to_num(flowfield.coordGrids)
+
     # Get maximum magnitude of swirl angle
-    maxMag = max([abs(flowfield.swirlAngle.min()), flowfield.swirlAngle.max()])
+    maxMag = max([abs(swirlAngle.min()), swirlAngle.max()])
     # Choose appropriate 'round to the nearest'
     if maxMag < 5:
         rounding = 1
@@ -84,8 +89,9 @@ def plotSwirl(flowfield):
     else:
         rounding = 10
     # Round max/min values to create range of swirl angles
-    minVal = np.floor(flowfield.swirlAngle.min() / rounding) * rounding
-    maxVal = np.ceil(flowfield.swirlAngle.max()  / rounding) * rounding
+    minVal = np.floor(swirlAngle.min() / rounding) * rounding
+    maxVal = np.ceil(swirlAngle.max()  / rounding) * rounding
+    print(maxVal, minVal)
 
     # Make ticks for colormap
     #ticks = np.arange(minVal,maxVal,rounding)
@@ -94,7 +100,9 @@ def plotSwirl(flowfield):
     # Make contour plot
     plt.figure()
     plt.title('Swirl angle')
-    plt.contourf(flowfield.coordGrids[:,:,0],flowfield.coordGrids[:,:,1],flowfield.swirlAngle,100,cmap='jet',vmin=minVal,vmax=maxVal)
+    # For some reason contourf doesn't like when the coordinate grids have nans in them, so using zero instead of nan versions of array
+    plt.contourf(coordGrids[:,:,0],coordGrids[:,:,1],swirlAngle,100,cmap='jet',vmin=minVal,vmax=maxVal)
+    np.savetxt('debug.csv',swirlAngle,delimiter='  ')
     plt.colorbar(ticks=ticks)
 
 '''
