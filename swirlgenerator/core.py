@@ -60,6 +60,7 @@ class Input:
         self.format = None
         self.xSide = None
         self.ySide = None
+        self.radius = None
         self.zSide = None
         self.shape = None
         self.xNumCells = None
@@ -100,10 +101,33 @@ class Input:
             # Get section
             meshDefinitions = config['MESH DEFINITION']
 
-            # Check present inputs
+            # Get specified inlet shape
             try:
-                self.xSide = float(meshDefinitions.get('x_side'))
-                self.ySide = float(meshDefinitions.get('y_side'))
+                self.shape = meshDefinitions.get('shape')
+            except:
+                raise KeyError("Shape of inlet face must be specified")
+
+            # Get necessary inputs for inlet shape
+            if self.shape == 'circle':
+                try:
+                    self.radius = float(meshDefinitions.get('radius'))
+                except KeyError:
+                    raise KeyError("Radius of circular inlet needs to be defined")
+                except ValueError:
+                    raise ValueError("Invalid value defined for inlet radius")
+            elif self.shape == 'rect':
+                try:
+                    self.xSide = float(meshDefinitions.get('x_side'))
+                    self.ySide = float(meshDefinitions.get('y_side'))
+                except KeyError:
+                    raise KeyError("Side lengths of rectangular inlet need to be defined")
+                except ValueError:
+                    raise ValueError("Invalid values defined for side lengths")
+            else:
+                raise NotImplementedError("Specified inlet shape not valid")
+
+            # Get mesh density
+            try:
                 self.xNumCells = int(meshDefinitions.get('x_num_cells'))
                 self.yNumCells = int(meshDefinitions.get('y_num_cells'))
             except KeyError:
@@ -111,9 +135,7 @@ class Input:
             except ValueError:
                 raise ValueError(f"Invalid values defined for mesh parameters")
 
-            if ('shape' in meshDefinitions):
-                self.shape = meshDefinitions.get('shape')
-
+            # Optional parameters
             if ('z_side' in meshDefinitions):
                 self.zSide = float(meshDefinitions.get('z_side'))
 
