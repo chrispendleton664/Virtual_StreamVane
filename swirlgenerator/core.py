@@ -512,7 +512,46 @@ class FlowField:
                 print(self.velGrids[:,0,0])
 
         elif self.shape == 'circle':
-            raise NotImplementedError('Circle boundary check has not yet been implemented')
+            # Get flattened list of points and velocities at the boundary, stored as complex numbers
+            points = self.coordGrids[:,:,0][self.boundaryCells] + 1j * self.coordGrids[:,:,1][self.boundaryCells]
+            vels   = self.velGrids[:,:,0][self.boundaryCells] + 1j * self.velGrids[:,:,1][self.boundaryCells]
+
+            # Sort data based on increasing phi polar coordinate
+            sortIdx = np.argsort(np.angle(points))
+            sortedPoints = points[sortIdx]
+            sortedVels = vels[sortIdx]
+
+            # Calculate vectors which are parallel to the boundary curve
+            parallelVect = np.empty(sortedPoints.size, dtype=complex)
+            for i in range(sortedPoints.size):
+                if (i != 0 and i != sortedPoints.size-1):
+                    parallelVect[i] = sortedPoints[i+1]-sortedPoints[i-1]
+                elif (i == 0):
+                    parallelVect[0] = sortedPoints[1]-sortedPoints[-1]
+                else:
+                    parallelVect[i] = sortedPoints[0]-sortedPoints[i-1]
+
+            # Calculate vectors which are perpendicular to the boundary curve
+            perpendicularVect = np.empty(sortedPoints.size, dtype=complex)
+            for i, vect in enumerate(parallelVect):
+                perpendicularVect[i] = vect.imag - 1j*vect.real
+
+            # Now calculate the component of the velocity at each point, perpendicular to the boundary curve
+            velOut = np.abs(sortedVels)*np.dot(sortedVels,perpendicularVect)
+
+            # Integrate to get total flux through boundary
+            fluxOut = np.sum(np.abs(velOut)*np.abs(parallelVect)/2)
+
+            print(f'Flux out of boundary: {fluxOut} units/sec')
+
+            # Get tangential vector 
+            # import matplotlib.pyplot as plt
+            # plt.figure()
+            # plt.quiver(sortedPoints.real, sortedPoints.imag, parallelVect.real, parallelVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='blue')
+            # plt.quiver(sortedPoints.real, sortedPoints.imag, perpendicularVect.real, perpendicularVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='red')
+            # plt.scatter(sortedPoints.real, sortedPoints.imag)
+            # plt.show()
+            
         else:
             raise NotImplementedError(f'\'{self.shape}\' boundary not valid')
 
