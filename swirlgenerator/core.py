@@ -271,10 +271,7 @@ class FlowField:
             radius = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
 
             # Get mask using inequality - add buffer so that circular domain edges touch grid edges, since working with nodes rather than cell centres
-            #mask = radius < self.radius + self.cellSides[0]
-            # Get mask using inequality
-            ''' Consider changing this since it includes singular points at the extremes '''
-            mask = radius < self.radius
+            mask = radius < self.radius + self.cellSides[0]/2
             # Get boundary using equality with a tolerance since discrete space
             boundary = abs(radius - self.radius) < self.cellSides[0]/2
 
@@ -321,7 +318,7 @@ class FlowField:
             uComps[:,:,i], vComps[:,:,i] = func(vortDefs.getVortex(i))
 
             # Calculate the effect of solid walls on this vortex using mirror image vortices
-            #uComps[:,:,i], vComps[:,:,i] = self.__boundary__(vortDefs.getVortex(i), uComps[:,:,i], vComps[:,:,i], func)
+            uComps[:,:,i], vComps[:,:,i] = self.__boundary__(vortDefs.getVortex(i), uComps[:,:,i], vComps[:,:,i], func)
 
 
         # Collate effects of each vortex
@@ -365,7 +362,7 @@ class FlowField:
                 imageVortData[0] = imageVortO[i]
                 imageVortData[1] = imageVortS[i]
 
-                print(f'image vortex @ {imageVortData[0]}, with strength {imageVortData[1]}')
+                #print(f'image vortex @ {imageVortData[0]}, with strength {imageVortData[1]}')
 
                 # Get effect of image vortex on grid
                 uBoundary, vBoundary = vortexFunc(tuple(imageVortData))
@@ -376,7 +373,28 @@ class FlowField:
 
 
         elif self.shape == 'circle':
-            raise NotImplementedError('Circular outer boundary not yet implemented')
+            # Protection for division by zero
+            vortData[0][vortData[0] == 0] = 1e-32   
+
+            # Vortex of opposite strength
+            imageVortS = -vortData[1]
+            # At the inverse point - according to circle theorem
+            imageVortO = (self.radius**2/(np.linalg.norm(vortData[0]))**2)*vortData[0]
+
+            # Creating new vortex data list
+            imageVortData = list(vortData)
+            imageVortData[0] = imageVortO
+            imageVortData[1] = imageVortS
+
+            #print(f'image vortex @ {imageVortData[0]}, with strength {imageVortData[1]}')
+
+            # Get effect of image vortex on grid
+            uBoundary, vBoundary = vortexFunc(tuple(imageVortData))
+
+            # Superimpose effect
+            uComp += uBoundary
+            vComp += vBoundary
+            
         else:
             raise NotImplementedError('Duct shape not valid')
 
