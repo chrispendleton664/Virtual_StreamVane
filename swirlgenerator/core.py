@@ -221,6 +221,7 @@ class FlowField:
         self.domainMask = None
         self.boundaryMask = None
         self.boundaryCurve = None
+        self._sortIdx_ = None
 
         # Some comparison and metrics
         self.swirlAngle = None
@@ -269,7 +270,11 @@ class FlowField:
 
     ''' 
     Create a mask to specify the domain shape and borders within the meshgrid
-    Sets two object attributes as boolean arrays, domainMask and boundary - domainMask is true when cell is within the boundary, boundary is true when cell is at the boundary
+    Sets object attributes: domainMask, boundaryMask, boundaryCurve, _sortIdx_
+    - domainMask is true when cell is within the boundary
+    - boundaryMask is true when cell is at the boundary
+    - boundaryCurve stores the points (in order) which make up the boundary, as complex numbers
+    - _sortIdx_ is an internal attribute, index order to sort boundary cells
     '''
     def setDomain(self):
         if self.shape == 'circle':
@@ -291,6 +296,10 @@ class FlowField:
 
         else:
             raise NotImplementedError(f'Domain shape \'{self.shape}\' not valid')
+
+        points = self.coordGrids[:,:,0][self.boundaryMask] + 1j * self.coordGrids[:,:,1][self.boundaryMask]
+        self._sortIdx_ = np.argsort(np.angle(points))
+        self.boundaryCurve = points[self._sortIdx_]
 
         # Show boundary for debugging
         # import matplotlib.pyplot as plt
@@ -517,27 +526,24 @@ class FlowField:
                 print(self.velGrids[:,0,0])
 
         elif self.shape == 'circle':
-            # Get flattened list of points and velocities at the boundary, stored as complex numbers
-            points = self.coordGrids[:,:,0][self.boundaryMask] + 1j * self.coordGrids[:,:,1][self.boundaryMask]
+            # Get flattened list of velocities at the boundary, stored as complex numbers
             vels   = self.velGrids[:,:,0][self.boundaryMask] + 1j * self.velGrids[:,:,1][self.boundaryMask]
 
             # Sort data based on increasing phi polar coordinate
-            sortIdx = np.argsort(np.angle(points))
-            sortedPoints = points[sortIdx]
-            sortedVels = vels[sortIdx]
+            sortedVels = vels[self._sortIdx_]
 
             # Calculate vectors which are parallel to the boundary curve
-            parallelVect = np.empty(sortedPoints.size, dtype=complex)
-            for i in range(sortedPoints.size):
-                if (i != 0 and i != sortedPoints.size-1):
-                    parallelVect[i] = sortedPoints[i+1]-sortedPoints[i-1]
+            parallelVect = np.empty(self.boundaryCurve.size, dtype=complex)
+            for i in range(self.boundaryCurve.size):
+                if (i != 0 and i != self.boundaryCurve.size-1):
+                    parallelVect[i] = self.boundaryCurve[i+1]-self.boundaryCurve[i-1]
                 elif (i == 0):
-                    parallelVect[0] = sortedPoints[1]-sortedPoints[-1]
+                    parallelVect[0] = self.boundaryCurve[1]-self.boundaryCurve[-1]
                 else:
-                    parallelVect[i] = sortedPoints[0]-sortedPoints[i-1]
+                    parallelVect[i] = self.boundaryCurve[0]-self.boundaryCurve[i-1]
 
             # Calculate vectors which are perpendicular to the boundary curve
-            perpendicularVect = np.empty(sortedPoints.size, dtype=complex)
+            perpendicularVect = np.empty(self.boundaryCurve.size, dtype=complex)
             for i, vect in enumerate(parallelVect):
                 perpendicularVect[i] = vect.imag - 1j*vect.real
 
@@ -552,9 +558,9 @@ class FlowField:
             # Get tangential vector 
             # import matplotlib.pyplot as plt
             # plt.figure()
-            # plt.quiver(sortedPoints.real, sortedPoints.imag, parallelVect.real, parallelVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='blue')
-            # plt.quiver(sortedPoints.real, sortedPoints.imag, perpendicularVect.real, perpendicularVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='red')
-            # plt.scatter(sortedPoints.real, sortedPoints.imag)
+            # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, parallelVect.real, parallelVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='blue')
+            # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, perpendicularVect.real, perpendicularVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='red')
+            # plt.scatter(self.boundaryCurve.real, self.boundaryCurve.imag)
             # plt.show()
             
         else:
