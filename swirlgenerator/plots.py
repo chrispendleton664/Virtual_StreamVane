@@ -91,7 +91,6 @@ def plotSwirl(flowfield):
     # Round max/min values to create range of swirl angles
     minVal = np.floor(swirlAngle.min() / rounding) * rounding
     maxVal = np.ceil(swirlAngle.max()  / rounding) * rounding
-    print(maxVal, minVal)
 
     # Make ticks for colormap
     #ticks = np.arange(minVal,maxVal,rounding)
@@ -101,8 +100,7 @@ def plotSwirl(flowfield):
     plt.figure()
     plt.title('Swirl angle')
     # For some reason contourf doesn't like when the coordinate grids have nans in them, so using zero instead of nan versions of array
-    plt.contourf(coordGrids[:,:,0],coordGrids[:,:,1],swirlAngle,100,cmap='jet',vmin=minVal,vmax=maxVal)
-    np.savetxt('debug.csv',swirlAngle,delimiter='  ')
+    plt.contourf(coordGrids[:,:,0],coordGrids[:,:,1],flowfield.swirlAngle,100,cmap='jet',vmin=minVal,vmax=maxVal)
     plt.colorbar(ticks=ticks)
 
 '''
