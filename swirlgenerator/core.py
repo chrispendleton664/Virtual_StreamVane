@@ -215,6 +215,13 @@ class FlowField:
         self.rho        = None
         self.pressure   = None
 
+        # Initialise grid and domain variables
+        self.coordGrids = None
+        self.axis = None
+        self.domainMask = None
+        self.boundaryMask = None
+        self.boundaryCurve = None
+
         # Some comparison and metrics
         self.swirlAngle = None
 
@@ -228,14 +235,14 @@ class FlowField:
         else:
             raise NotImplementedError('Invalid domain shape \'{self.shape}\'')
 
-        # Create coordinate grid which will contain the domain, also store axis ticks (may not be recoverable from coordinate grids depending on domain shape)
-        self.coordGrids, self.axis = self.makeGrid()
+        # Set coordGrids and axis attributes
+        self.makeGrid()
 
-        # Set domain boundary and mask to get all cells within domain
-        self.mask, self.boundaryCells = self.setDomain()
+        # Set domainMask and boundaryMask attributes
+        self.setDomain()
 
         # Set cells outside domain to nan so that the flow field there is not unnecessarily calculated
-        self.coordGrids[np.invert(np.dstack([self.mask,self.mask]))] = np.nan
+        self.coordGrids[np.invert(np.dstack([self.domainMask,self.domainMask]))] = np.nan
 
     '''
     Make meshgrids to store coordinate system; as a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
@@ -254,34 +261,33 @@ class FlowField:
         X, Y = np.meshgrid(x,y, indexing='xy')        # Use familiar ij matrix indexing
 
         # Stack grids into a 3D array, for convenience when passing between functions - not sure about performance effect, better or worse or negligible?
-        coordGrids = np.dstack([X,Y])
+        self.coordGrids = np.dstack([X,Y])
 
         # Stack axis ticks
-        axis = np.vstack([x,y])
+        self.axis = np.vstack([x,y])
 
-        return coordGrids, axis
 
     ''' 
     Create a mask to specify the domain shape and borders within the meshgrid
-    Outputs two boolean arrays, mask and boundary - mask is true when cell is within the boundary, boundary is true when cell is at the boundary
+    Sets two object attributes as boolean arrays, domainMask and boundary - domainMask is true when cell is within the boundary, boundary is true when cell is at the boundary
     '''
     def setDomain(self):
         if self.shape == 'circle':
             # Radius of each cell from origin
             radius = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
 
-            # Get mask using inequality - add buffer so that circular domain edges touch grid edges, since working with nodes rather than cell centres
-            mask = radius < self.radius + self.cellSides[0]/2
+            # Get domainMask using inequality - add buffer so that circular domain edges touch grid edges, since working with nodes rather than cell centres
+            self.domainMask = radius < self.radius + self.cellSides[0]/2
             # Get boundary using equality with a tolerance since discrete space
-            boundary = abs(radius - self.radius) < self.cellSides[0]/2
+            self.boundaryMask = abs(radius - self.radius) < self.cellSides[0]/2
 
         elif self.shape == 'rect':
             # All cells are within boundary when rectangular domain shape
-            mask = np.ones(self.coordGrids.shape[0:2], dtype=bool)
+            self.domainMask = np.ones(self.coordGrids.shape[0:2], dtype=bool)
 
             # Boundary cells are simply those at the edges
-            boundary = np.zeros(mask.shape, dtype=bool)
-            boundary[1:-1,1:-1] = True
+            self.boundaryMask = np.zeros(self.domainMask.shape, dtype=bool)
+            self.boundaryMask[1:-1,1:-1] = True
 
         else:
             raise NotImplementedError(f'Domain shape \'{self.shape}\' not valid')
@@ -289,12 +295,11 @@ class FlowField:
         # Show boundary for debugging
         # import matplotlib.pyplot as plt
         # plt.figure()
-        # plt.imshow(mask)
+        # plt.imshow(domainMask)
         # plt.figure()
         # plt.imshow(boundary)
         # plt.show()
 
-        return mask, boundary
 
     '''
     Generic multiple vortices function
@@ -513,8 +518,8 @@ class FlowField:
 
         elif self.shape == 'circle':
             # Get flattened list of points and velocities at the boundary, stored as complex numbers
-            points = self.coordGrids[:,:,0][self.boundaryCells] + 1j * self.coordGrids[:,:,1][self.boundaryCells]
-            vels   = self.velGrids[:,:,0][self.boundaryCells] + 1j * self.velGrids[:,:,1][self.boundaryCells]
+            points = self.coordGrids[:,:,0][self.boundaryMask] + 1j * self.coordGrids[:,:,1][self.boundaryMask]
+            vels   = self.velGrids[:,:,0][self.boundaryMask] + 1j * self.velGrids[:,:,1][self.boundaryMask]
 
             # Sort data based on increasing phi polar coordinate
             sortIdx = np.argsort(np.angle(points))
