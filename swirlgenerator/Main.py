@@ -1,8 +1,7 @@
-from matplotlib.pyplot import plot
-import swirlgenerator.core as sg
-import swirlgenerator.writeBC as bc
-import swirlgenerator.maketestdomain as domain
-import swirlgenerator.plots as post
+import core as sg
+import writeBC as bc
+import maketestdomain as domain
+import plots as post
 import sys
 
 '''

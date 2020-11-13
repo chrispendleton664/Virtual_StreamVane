@@ -9,7 +9,7 @@
 
 import gmsh
 import sys
-import swirlgenerator.core as sg
+import core as sg
 
 def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
 

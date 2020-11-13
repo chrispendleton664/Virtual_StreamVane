@@ -4,7 +4,7 @@
 #
 # -------------------------------------------------------------------------------------------------------------------
 
-import swirlgenerator.core as sg
+import core as sg
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
