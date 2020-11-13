@@ -6,3 +6,4 @@ __pycache__
 swirlGenerator.egg-info
 testharness.py
 *.zip
+*.code-workspace
