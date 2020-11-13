@@ -9,10 +9,14 @@ from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 
-'''
-Utility for showing and saving all plots
-'''
+
 def plotAll(flowfield: sg.FlowField, pdfName=None):
+    '''
+    Utility for showing and saving all plots
+    - flowfield - FlowField object containing data to be plotted
+    - pdfName - filename to save the plots to, should include extension
+    '''
+
     plotVelocity(flowfield)
 
     #plotThermos(flowfield)
@@ -28,10 +32,14 @@ def plotAll(flowfield: sg.FlowField, pdfName=None):
     # Clear figures when done
     plt.close('all')
 
-'''
-Create plots for the swirling velocity profile as a quiver plot and a streamlines plot
-'''
+
 def plotVelocity(flowfield, maxNumArrows=30):
+    '''
+    Create plots for the swirling velocity profile as a quiver plot and a streamlines plot
+    - flowfield - FlowField object containing data to be plotted
+    - maxNumArrows - maximum number of arrows to draw on the quiver plot
+    '''
+
     # Reduced indices of grids - so only a maximum of n^2 arrows will be plotted on the quiver plot
     n = maxNumArrows
     gridDims = flowfield.coordGrids.shape
@@ -63,10 +71,13 @@ def plotVelocity(flowfield, maxNumArrows=30):
     # Draw boundary
     plt.plot(flowfield.boundaryCurve.real, flowfield.boundaryCurve.imag,'k-')
 
-'''
-Create contour plots for density and pressure field
-'''
+
 def plotThermos(flowfield):
+    '''
+    Create contour plots for density and pressure field
+    - flowfield - FlowField object containing data to be plotted
+    '''
+
     plt.figure()
     plt.title('Density')
     plt.contourf(flowfield.coordGrids[:,:,0],flowfield.coordGrids[:,:,1],flowfield.rho,100,cmap='jet')
@@ -77,10 +88,13 @@ def plotThermos(flowfield):
     plt.contourf(flowfield.coordGrids[:,:,0],flowfield.coordGrids[:,:,1],flowfield.pressure,100,cmap='jet')
     plt.colorbar()
 
-'''
-Create contour plot for swirl angle
-'''
+
 def plotSwirl(flowfield):
+    '''
+    Create contour plot for swirl angle
+    - flowfield - FlowField object containing data to be plotted
+    '''
+
     # Convert nans to zero so that max/min operations don't result in nan
     swirlAngle = np.nan_to_num(flowfield.swirlAngle)
     coordGrids = np.nan_to_num(flowfield.coordGrids)
@@ -113,10 +127,14 @@ def plotSwirl(flowfield):
     # Draw boundary
     plt.plot(flowfield.boundaryCurve.real, flowfield.boundaryCurve.imag,'k-')
 
-'''
-Save all current figures into a multi-page pdf
-'''
+
 def __saveFigsToPdf__(outputFile):
+    '''
+    Save all current figures into a multi-page pdf
+    - Internal function, should not be used outside plots.py
+    -outputFile - name of file to save to, including extension
+    '''
+
     with PdfPages(outputFile) as pdf:
         # Go through all active figures and save to a separate pdf page
         for fig in range(1, plt.gcf().number+1):

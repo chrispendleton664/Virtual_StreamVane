@@ -1,17 +1,24 @@
-# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------
 #
-# Script to generate a simple 3D rectangular geometry and mesh
+# Generates simple geometry and meshes which are compatible with the generated boundary condition
 # for testing the development of swirling profiles created by swirlGenerator
 # using the python API of GMSH
 # https://gitlab.onelab.info/gmsh/gmsh/-/blob/master/tutorial/python
 #
-# --------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------
 
 import gmsh
 import sys
 import core as sg
 
 def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
+    '''
+    Generates a simple 3D rectangular geometry and mesh
+    - InputData - Input object from core.py, containing geometry and mesh properties
+    - meshfilename - the filename's extension will determine what format to write the mesh
+    - showmesh - flag for showing the mesh using the gmsh gui, not recommended for large meshes
+    - Uses gmsh python api
+    '''
 
     print('Creating geometry...')
 

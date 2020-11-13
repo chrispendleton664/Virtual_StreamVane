@@ -19,12 +19,12 @@ GAMMA = 1.4
 kin_visc = 1.81e-5
 density = 1.225         # ISA sea level condition - for incompressible
 
-'''
-For storing and convenient querying of information about the vortices which have been defined for the domain
-A separate class is used since the domain could be more complex in previous versions - left as separate class rather than embedding into Input class for code clarity and future proofing
-- Positive vortex strength is defined as anti-clockwise rotation
-'''
 class Vortices: 
+    '''
+    For storing and convenient querying of information about the vortices which have been defined for the domain
+    - Positive vortex strength is defined as anti-clockwise rotation
+    '''
+
     # Object constructor accepts lists also for convenience, then later converts to numpy arrays
     def __init__(self, model: int, centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray],
                        radius: Union[list, np.ndarray], axialVel: float):
@@ -50,10 +50,13 @@ class Vortices:
 
         return data 
 
-'''
-Class for reading and storing the information in the config file
-'''
+
 class Input:
+    '''
+    Class for reading and storing the information in the config file
+    - Full object is passed in and used in other core classes
+    '''
+
     def __init__(self):
         # Intiailise all possible variables first
         self.filename = None
@@ -192,11 +195,13 @@ class Input:
         # Set defaults if values weren't set
         self.axialVel   = (1.0 if self.axialVel is None else self.axialVel)
 
-'''
-Class containing data and functions relevant to the flow field
-Initialised with an Input object
-'''
+
 class FlowField:
+    '''
+    Class containing data and functions relevant to the flow field
+    - Initialised with an Input object
+    '''
+
     def __init__(self, InputData: Input):
         # Get flow field descretisation descriptions from input object
         self.shape = InputData.shape
@@ -245,11 +250,15 @@ class FlowField:
         # Set cells outside domain to nan so that the flow field there is not unnecessarily calculated
         self.coordGrids[np.invert(np.dstack([self.domainMask,self.domainMask]))] = np.nan
 
-    '''
-    Make meshgrids to store coordinate system; as a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
-    Stores coords of mesh nodes rather than cell centres
-    '''
+    
     def makeGrid(self):
+        '''
+        Make meshgrids to store coordinate system
+        - As a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
+        - Also stores x and y axis ticks
+        - Stores coords of mesh nodes rather than cell centres
+        '''
+
         # Create coordinate system from mesh info - domain is centered at 0, I think makes for more intuitive definition of vortex positions
         x = np.linspace(-self.sideLengths[0]/2, self.sideLengths[0]/2, self.numCells[0]+1)      # x-axis is positive to the right
         y = np.linspace(self.sideLengths[1]/2, -self.sideLengths[1]/2, self.numCells[1]+1)      # y-axis is positive upwards
@@ -268,15 +277,16 @@ class FlowField:
         self.axis = np.vstack([x,y])
 
 
-    ''' 
-    Create a mask to specify the domain shape and borders within the meshgrid
-    Sets object attributes: domainMask, boundaryMask, boundaryCurve, _sortIdx_
-    - domainMask is true when cell is within the boundary
-    - boundaryMask is true when cell is at the boundary
-    - boundaryCurve stores the points (in order) which make up the boundary, as complex numbers
-    - _sortIdx_ is an internal attribute, index order to sort boundary cells
-    '''
     def setDomain(self):
+        ''' 
+        Create a mask to specify the domain shape and borders within the meshgrid.
+        Sets object attributes: domainMask, boundaryMask, boundaryCurve, _sortIdx_
+        - domainMask is true when cell is within the boundary
+        - boundaryMask is true when cell is at the boundary
+        - boundaryCurve stores the points (in order) which make up the boundary, as complex numbers
+        - _sortIdx_ is an internal attribute, index order to sort boundary cells
+        '''
+
         if self.shape == 'circle':
             # Radius of each cell from origin
             radius = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
@@ -310,13 +320,16 @@ class FlowField:
         # plt.show()
 
 
-    '''
-    Generic multiple vortices function
-    Calculates the velocity field by superimposing the effect of the individual vortices
-    Solid boundaries are modelled using the method of images
-    vortDefs - Vortices object; axialVel - uniform axial velocity to be applied; density - if defined, assume that flow is incompressible
-    '''
     def computeDomain(self, vortDefs: Vortices, axialVel, density = None):
+        '''
+        Generic multiple vortices function.
+        Calculates the velocity field by superimposing the effect of the individual vortices.
+        - vortDefs - Vortices object
+        - axialVel - uniform axial velocity to be applied
+        - density - if defined, assume that flow is incompressible
+        - Solid boundaries are modelled using the method of images
+        '''
+
         # Intialise 3D arrays to store multiple meshgrids - one for the component effect of each vortex
         uComps = np.zeros(np.append(self.coordGrids[:,:,0].shape, vortDefs.strengths.shape[0]))
         vComps = uComps.copy()
@@ -348,12 +361,18 @@ class FlowField:
         # Get swirl angle
         self.getSwirl()
 
-    '''
-    Models the effect of a solid wall on a vortex by placing a symmetric vortex
-    Effect of these symmetric vortices are superimposed onto the input arrays
-    WIP ---- DOES NOT CUURENTLY WORK CORRECTLY
-    '''
+    
     def __boundary__(self, vortData, uComp, vComp, vortexFunc):
+        '''
+        Models the effect of a solid wall on a vortex using the Method of Images.
+        Effect of these image vortices are superimposed onto the input arrays.
+        - Internal function, should not be used outside core.py
+        - WIP ---- RECTANGULAR BOUNDARY DOES NOT CURRENTLY WORK CORRECTLY
+        - vortData - tuple produced by getVortex() function of Vortices class
+        - uComp, vComp - velocity field outputted by a vortex function
+        - vortexFunc - pointer to the correct vortex function depending on chosen model
+        '''
+
         if self.shape == 'rect':
             # Get distance of vortex from walls - defined starting with bottom wall, going clockwise
             vortXc, vortYc = vortData[0]
@@ -414,12 +433,14 @@ class FlowField:
 
         return uComp, vComp
 
-    '''
-    Function for outputting the effect of a simple isentropic vortex on the domain
-    - edge of grid currently not a bounding wall, ie vortex is acting like it's in an infinite domain and grid is just a smple of this
-    vortData - tuple produced by getNextVortex() function of Vortices class
-    '''
+    
     def __isoVortex__(self, vortData):
+        '''
+        Function for outputting the effect of a simple isentropic vortex on the domain
+        - vortData - tuple produced by getVortex() function of Vortices class
+        - Internal function, should not be used outside core.py
+        '''
+
         # Get radius of each cell from centre of this vortex
         r = np.sqrt((self.coordGrids[:,:,0]-vortData[0][0])**2 + (self.coordGrids[:,:,1] - vortData[0][1])**2)
 
@@ -429,13 +450,15 @@ class FlowField:
 
         return uComp, vComp
 
-    '''
-    Function for outputting the effect of a Lamb-Oseen vortex
-    - using equations given by Brandt (2009)
-
-    vortData - tuple produced by getNextVortex() function of Vortices class
-    '''
+    
     def __loVortex__(self, vortData):
+        '''
+        Function for outputting the effect of a Lamb-Oseen vortex
+        - Internal function, should not be used outside core.py
+        - vortData - tuple produced by getVortex() function of Vortices class
+        - using equations given by Brandt (2009)
+        '''
+
         # Extract individual variables from stacked tuples and arrays for convenience
         xc, yc = vortData[0]
         strength = vortData[1]
@@ -454,14 +477,16 @@ class FlowField:
 
         return uComp, vComp
 
-    '''
-    Function for outputting the effect of a forced vortex
-    - linear increase in swirl angle from center to outer edge
-    - solid/forced vortex - not realistic; ie instantaneously created vortex, no effect on cells outside it's radius
-
-    vortData - tuple produced by getNextVortex() function of Vortices class
-    '''
+    
     def __solidVortex__(self, vortData):
+        '''
+        Function for outputting the effect of a forced vortex
+        - Internal function, should not be used outside core.py
+        - vortData - tuple produced by getNextVortex() function of Vortices class
+        - linear increase in swirl angle from center to outer edge
+        - solid/forced vortex - not realistic; ie instantaneously created vortex, no effect on cells outside it's radius
+        '''
+
         # Get swirl angle and convert it to radians
         maxSwirlAngle = np.deg2rad(np.abs(vortData[1]))
 
@@ -495,12 +520,14 @@ class FlowField:
 
         return uComp, vComp
 
-    '''
-    For verifying physically correct boundary conditions after applying the method of images to model the solid boundaries
-    ie checking if there is any flow across the solid boundaries and no slip condition:
-    V_normal = 0, V_tangential = V_wall = 0
-    '''
+
     def checkBoundaries(self):
+        '''
+        For verifying physically correct boundary conditions.
+        ie checking if there is any flow across the solid boundaries and no slip condition
+        - Currently only checks for no-flux condition
+        '''
+
         boundary_ok = True
 
         if self.shape == 'rect':
@@ -568,10 +595,12 @@ class FlowField:
 
         return boundary_ok
 
-    '''
-    Get swirl angles
-    '''
+    
     def getSwirl(self):
+        '''
+        Calculate swirl angles of velocity field
+        '''
+
         # Get theta_dot - rate of chane of theta angle (rad/s)
         theta_dot = (self.coordGrids[:,:,0]*self.velGrids[:,:,1] - self.velGrids[:,:,0]*self.coordGrids[:,:,1]) / (self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
         # Get radius
@@ -585,24 +614,32 @@ class FlowField:
         # Convert to degrees
         self.swirlAngle = np.rad2deg(swirlAngle)
 
-    '''
-    Calculate Root Mean Square error between this flow field's swirl angle profile and a given one
-    '''
+    
     def getError(self, desiredSwirl):
+        '''
+        Calculate Root Mean Square error between this flow field's swirl angle profile and a given one
+        - desiredSwirl - swirl angle data of each point in the flow field to be compared
+        '''
+
         RMSE = np.sqrt((1/np.size(self.swirlAngle))*np.sum((self.swirlAngle-desiredSwirl)**2))
 
         return RMSE
 
-    '''
-    Wrapper function for saving the flow field - so that calling script does not need to import numpy just for this
-    '''
+    
     def save(self, outputFile):
+        '''
+        Wrapper function for saving the flow field in a format which can be loaded by core.load() later
+        - so calling script does not need to import numpy just for this
+        '''
+
         np.savez(outputFile, velGrids=self.velGrids, rho=self.rho, pressure=self.pressure, swirl=self.swirlAngle)
 
-    '''
-    Unpacks zipped archive file created by saveFlowField() and returns the numpy arrays in the familiar format
-    '''
+
     def load(self, file):
+        '''
+        Unpacks zipped archive file created by save() and returns the numpy arrays in the familiar format
+        '''
+
         # Extract file into an npz file
         npzfile = np.load(file)
 
@@ -616,10 +653,12 @@ class FlowField:
         else:
             raise RuntimeError('File format/contents invalid - make sure this file was created by swirlGenerator.saveFigsToPdf')
 
-    '''
-    Utility function for copying this flow field into another separate object
-    '''
+    
     def copy(self):
+        '''
+        Utility function for copying this flow field into another separate object
+        '''
+
         # Create new object
         newField = FlowField(self.sideLengths,self.numCells)
 

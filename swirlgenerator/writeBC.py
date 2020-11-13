@@ -12,12 +12,16 @@
 import core as sg
 import numpy as np
 
-'''
-For writing into an SU2 useable format
-Column format for SU2 inlet boundary condition (3D domain):
-x, y, z, temperature, velocity magnitude,  x-component of flow direction unit vector, y-component of flow direction unit vector, z-component of flow direction unit vector
-'''
+
 def writeSU2(flowField: sg.FlowField, filename):
+    '''
+    For writing the data into an SU2 useable format.
+    Column format for SU2 inlet boundary condition (3D domain):
+    x, y, z, temperature, velocity magnitude,  x-component of flow direction unit vector, y-component of flow direction unit vector, z-component of flow direction unit vector
+    - flowfield - FlowField object containing data to be plotted
+    - filename - filename to save boundary condition to, should include the .dat extension
+    '''
+
     # Flatten coordinate grids to get coordinates of every cell
     x = np.reshape(flowField.coordGrids[:,:,0],[flowField.coordGrids[:,:,0].size,1])
     y = np.reshape(flowField.coordGrids[:,:,1],[flowField.coordGrids[:,:,1].size,1])
@@ -55,10 +59,15 @@ def writeSU2(flowField: sg.FlowField, filename):
         # Write each row of matrix into separate line with 6 decimal places
         np.savetxt(f, boundaryConditions, fmt='%.6f')
 
-'''
-Wrapper function for calling the correct function to write the boundary condition in the requested format
-'''
+
 def writeInlet(InputObject: sg.Input, flowField: sg.FlowField):
+    '''
+    Wrapper function for calling the correct function to write the boundary condition in the requested format
+    - InputObject - Input object which would contain the format to write the boundary condition in
+    - flowfield - FlowField object containing data to be plotted
+    - Currently only su2 format is supported
+    '''
+
     # Dictionary mapping for different boundary condition file formats and functions which create them
     formats = {'su2':writeSU2}
 
