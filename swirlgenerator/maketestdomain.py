@@ -8,7 +8,6 @@
 # --------------------------------------------------------------------------------------------------------
 
 import gmsh
-import sys
 import core as sg
 
 def simpleBox(InputData: sg.Input, meshfilename, showmesh=False):
