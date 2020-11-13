@@ -104,6 +104,7 @@ def plotSwirl(flowfield):
 
     # Make contour plot
     plt.figure()
+    plt.gca().set_aspect('equal', adjustable='box')
     plt.title('Swirl angle')
     # For some reason contourf doesn't like when the coordinate grids have nans in them, so using zero instead of nan versions of array
     plt.contourf(coordGrids[:,:,0],coordGrids[:,:,1],flowfield.swirlAngle,100,cmap='jet',vmin=minVal,vmax=maxVal)
