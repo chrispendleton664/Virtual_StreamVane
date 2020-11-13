@@ -555,9 +555,9 @@ class FlowField:
 
             print(f'Flux out of boundary: {fluxOut} units/sec')
 
-            # Get tangential vector 
             # import matplotlib.pyplot as plt
             # plt.figure()
+            # plt.gca().set_aspect('equal', adjustable='box')
             # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, parallelVect.real, parallelVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='blue')
             # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, perpendicularVect.real, perpendicularVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='red')
             # plt.scatter(self.boundaryCurve.real, self.boundaryCurve.imag)
