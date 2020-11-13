@@ -530,69 +530,43 @@ class FlowField:
 
         boundary_ok = True
 
-        if self.shape == 'rect':
-            # Check top wall
-            if (any(self.velGrids[0,:,1] != 0)):
-                boundary_ok = False
-                print('Boundary broken, flow through top wall:')
-                print(self.velGrids[0,:,1])
-            # Check bottom wall
-            if (any(self.velGrids[-1,:,1] != 0)):
-                boundary_ok = False
-                print('Boundary broken, flow through bottom wall:')
-                print(self.velGrids[-1,:,1])
-            # Check right wall
-            if (any(self.velGrids[:,-1,0] != 0)):
-                boundary_ok = False
-                print('Boundary broken, flow through right wall:')
-                print(self.velGrids[:,-1,0])
-            # Check left wall
-            if (any(self.velGrids[:,0,0] != 0)):
-                boundary_ok = False
-                print('Boundary broken, flow through left wall:')
-                print(self.velGrids[:,0,0])
+        # Get flattened list of velocities at the boundary, stored as complex numbers
+        vels   = self.velGrids[:,:,0][self.boundaryMask] + 1j * self.velGrids[:,:,1][self.boundaryMask]
 
-        elif self.shape == 'circle':
-            # Get flattened list of velocities at the boundary, stored as complex numbers
-            vels   = self.velGrids[:,:,0][self.boundaryMask] + 1j * self.velGrids[:,:,1][self.boundaryMask]
+        # Sort data based on increasing phi polar coordinate
+        sortedVels = vels[self._sortIdx_]
 
-            # Sort data based on increasing phi polar coordinate
-            sortedVels = vels[self._sortIdx_]
+        # Calculate vectors which are parallel to the boundary curve
+        parallelVect = np.empty(self.boundaryCurve.size, dtype=complex)
+        for i in range(self.boundaryCurve.size):
+            if (i != 0 and i != self.boundaryCurve.size-1):
+                parallelVect[i] = self.boundaryCurve[i+1]-self.boundaryCurve[i-1]
+            elif (i == 0):
+                parallelVect[0] = self.boundaryCurve[1]-self.boundaryCurve[-1]
+            else:
+                parallelVect[i] = self.boundaryCurve[0]-self.boundaryCurve[i-1]
 
-            # Calculate vectors which are parallel to the boundary curve
-            parallelVect = np.empty(self.boundaryCurve.size, dtype=complex)
-            for i in range(self.boundaryCurve.size):
-                if (i != 0 and i != self.boundaryCurve.size-1):
-                    parallelVect[i] = self.boundaryCurve[i+1]-self.boundaryCurve[i-1]
-                elif (i == 0):
-                    parallelVect[0] = self.boundaryCurve[1]-self.boundaryCurve[-1]
-                else:
-                    parallelVect[i] = self.boundaryCurve[0]-self.boundaryCurve[i-1]
+        # Calculate vectors which are perpendicular to the boundary curve
+        perpendicularVect = np.empty(self.boundaryCurve.size, dtype=complex)
+        for i, vect in enumerate(parallelVect):
+            perpendicularVect[i] = vect.imag - 1j*vect.real
 
-            # Calculate vectors which are perpendicular to the boundary curve
-            perpendicularVect = np.empty(self.boundaryCurve.size, dtype=complex)
-            for i, vect in enumerate(parallelVect):
-                perpendicularVect[i] = vect.imag - 1j*vect.real
+        # Now calculate the component of the velocity at each point, perpendicular to the boundary curve
+        velOut = np.abs(sortedVels)*np.dot(sortedVels,perpendicularVect)
 
-            # Now calculate the component of the velocity at each point, perpendicular to the boundary curve
-            velOut = np.abs(sortedVels)*np.dot(sortedVels,perpendicularVect)
+        # Integrate to get total flux through boundary
+        fluxOut = np.sum(np.abs(velOut)*np.abs(parallelVect)/2)
 
-            # Integrate to get total flux through boundary
-            fluxOut = np.sum(np.abs(velOut)*np.abs(parallelVect)/2)
+        print(f'Flux out of boundary: {fluxOut} units/sec')
 
-            print(f'Flux out of boundary: {fluxOut} units/sec')
-
-            # import matplotlib.pyplot as plt
-            # plt.figure()
-            # plt.gca().set_aspect('equal', adjustable='box')
-            # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, parallelVect.real, parallelVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='blue')
-            # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, perpendicularVect.real, perpendicularVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='red')
-            # plt.scatter(self.boundaryCurve.real, self.boundaryCurve.imag)
-            # plt.show()
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.gca().set_aspect('equal', adjustable='box')
+        # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, parallelVect.real, parallelVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='blue')
+        # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, perpendicularVect.real, perpendicularVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='red')
+        # plt.scatter(self.boundaryCurve.real, self.boundaryCurve.imag)
+        # plt.show()
             
-        else:
-            raise NotImplementedError(f'\'{self.shape}\' boundary not valid')
-
         return boundary_ok
 
     
