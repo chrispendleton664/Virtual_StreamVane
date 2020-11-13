@@ -23,3 +23,9 @@ A sort of image recognition capability for receiving contour plots of flow field
 ## Limitations
 - Only su2 format for the boundary condition is currently supported
 - Only supports incompressible boundary conditions
+
+
+## Dependencies
+- Numpy
+- Matplotlib
+- gmsh - only for creating a test mesh with maketestdomain.py
