@@ -521,10 +521,11 @@ class FlowField:
         return uComp, vComp
 
 
-    def checkBoundaries(self):
+    def checkBoundaries(self, tolerance=1e-6):
         '''
         For verifying physically correct boundary conditions.
         ie checking if there is any flow across the solid boundaries and no slip condition
+        - tolerance - maximum flux out of boundary considered negligible
         - Currently only checks for no-flux condition
         '''
 
@@ -557,7 +558,10 @@ class FlowField:
         # Integrate to get total flux through boundary
         fluxOut = np.sum(np.abs(velOut)*np.abs(parallelVect)/2)
 
-        print(f'Flux out of boundary: {fluxOut} units/sec')
+        # Check if this flux is considered negligible or not
+        if fluxOut > tolerance:
+            boundary_ok = False
+            print(f'Flux out of boundary: {fluxOut} units/sec')
 
         # import matplotlib.pyplot as plt
         # plt.figure()
