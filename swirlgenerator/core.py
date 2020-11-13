@@ -669,27 +669,3 @@ class FlowField:
         newField.swirlAngle = self.swirlAngle
 
         return newField
-
-def main():
-    '''
-    Default behaviour to showcase tool - ideally the swirlGenerator functions should be called from external scripts
-    '''
-
-    print("Generating generic bulk twin swirl profile (Lamb-Oseen vortices)...")
-
-    # Initialise flow field object with domain side lengths and number of cells
-    flowField = FlowField([10,10],[100,100])
-
-    # Initialise object to store data about multiple vortices
-    VortexDefs = Vortices('LO', [[-2,0],[2,0]], [-5,5])
-
-    # Place vortices in domain
-    flowField.defineVortices(VortexDefs, 5)
-
-    # Plot and save fields
-    flowField.plotAll()
-
-
-
-if __name__ == '__main__':
-    main()
