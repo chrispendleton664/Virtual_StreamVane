@@ -1,5 +1,7 @@
 # Virtual_StreamVane
  Python tool for creating arbitrary swirling inflow boundary conditions for use with a CFD framework. Created as part of a Master's dissertation for MEng Aerospace Engineering.
+ 
+ Inspired by **'A New Method for Generating Swirl Inlet Distortion for Jet Engine Research'** paper by K. Hoopes (2013). This is an attempt to develop the same capability for aiding work in the numerical (CFD) domain.
 
 ## Basic Usage
 ### Command Line Control
