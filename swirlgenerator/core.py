@@ -54,10 +54,11 @@ class Vortices:
 class Input:
     '''
     Class for reading and storing the information in the config file
+    - configfile - name of config file to read from when the object is initialised
     - Full object is passed in and used in other core classes
     '''
 
-    def __init__(self):
+    def __init__(self, configfile):
         # Intiailise all possible variables first
         self.filename = None
         self.format = None
@@ -74,6 +75,9 @@ class Input:
         self.vortStrengths = []
         self.vortRadius = []
         self.axialVel = None
+
+        # Read in the config file on initialisation of the object since it has no other functionality anyway
+        self.read(configfile)
 
     def read(self, configFile):
         # Initialise config parser and read config file

@@ -16,8 +16,7 @@ def main():
     # Only try to generate boundary condition if the config file has been specified
     if options.configfile is not None:
         # Initialise Input object and read config file
-        inputData = sg.Input()
-        inputData.read(options.configfile)
+        inputData = sg.Input(options.configfile)
 
         # Intialise flow field object with coordinate system
         flowField = sg.FlowField(inputData)
