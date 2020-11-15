@@ -220,12 +220,12 @@ class FlowField:
         self.numCells = np.array([InputData.xNumCells, InputData.yNumCells])
 
         # Initialise the actual flow field variables
-        self.velGrids   = None
+        self.velocity   = None
         self.rho        = None
         self.pressure   = None
 
         # Initialise grid and domain variables
-        self.coordGrids = None
+        self.coords = None
         self.axis = None
         self.domainMask = None
         self.boundaryMask = None
@@ -245,14 +245,14 @@ class FlowField:
         else:
             raise NotImplementedError('Invalid domain shape \'{self.shape}\'')
 
-        # Set coordGrids and axis attributes
+        # Set coords and axis attributes
         self.makeGrid()
 
         # Set domainMask and boundaryMask attributes
         self.setDomain()
 
         # Set cells outside domain to nan so that the flow field there is not unnecessarily calculated
-        self.coordGrids[np.invert(np.dstack([self.domainMask,self.domainMask]))] = np.nan
+        self.coords[np.invert(self.domainMask)] = np.nan
 
     
     def makeGrid(self):
@@ -264,18 +264,18 @@ class FlowField:
         '''
 
         # Create coordinate system from mesh info - domain is centered at 0, I think makes for more intuitive definition of vortex positions
-        x = np.linspace(-self.sideLengths[0]/2, self.sideLengths[0]/2, self.numCells[0]+1)      # x-axis is positive to the right
-        y = np.linspace(self.sideLengths[1]/2, -self.sideLengths[1]/2, self.numCells[1]+1)      # y-axis is positive upwards
+        x = np.linspace(-self.sideLengths[0]/2, self.sideLengths[0]/2, self.numCells[0]+1)
+        y = np.linspace(-self.sideLengths[1]/2, self.sideLengths[1]/2, self.numCells[1]+1)     
 
         # Protection for division by zero later - better solution than this?
         x[x == 0] = 1e-32
         y[y == 0] = 1e-32
 
-        # Create meshgrid to store coordinate grid - useful in this form for plotting later and reduces the amount of for loops since we can use numpy matrix operations instead
-        X, Y = np.meshgrid(x,y, indexing='xy')        # Use familiar ij matrix indexing
+        # Use meshgrid function to get the coordinates of all points
+        X, Y = np.meshgrid(x,y)
 
-        # Stack grids into a 3D array, for convenience when passing between functions - not sure about performance effect, better or worse or negligible?
-        self.coordGrids = np.dstack([X,Y])
+        # Then flatten and store as a list of complex numbers
+        self.coords = X.flatten() + 1j * Y.flatten()
 
         # Stack axis ticks
         self.axis = np.vstack([x,y])
@@ -293,34 +293,36 @@ class FlowField:
 
         if self.shape == 'circle':
             # Radius of each cell from origin
-            radius = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
+            radius = np.abs(self.coords)
 
             # Get domainMask using inequality - add buffer so that circular domain edges touch grid edges, since working with nodes rather than cell centres
             self.domainMask = radius < self.radius + self.cellSides[0]/2
+
             # Get boundary using equality with a tolerance since discrete space
             self.boundaryMask = abs(radius - self.radius) < self.cellSides[0]/2
 
         elif self.shape == 'rect':
             # All cells are within boundary when rectangular domain shape
-            self.domainMask = np.ones(self.coordGrids.shape[0:2], dtype=bool)
+            self.domainMask = np.ones(self.coords.shape, dtype=bool)
 
             # Boundary cells are simply those at the edges
             self.boundaryMask = np.zeros(self.domainMask.shape, dtype=bool)
-            self.boundaryMask[1:-1,1:-1] = True
+            self.boundaryMask[abs(self.coords.real) == self.sideLengths[0]/2] = True    # Right and left wall
+            self.boundaryMask[abs(self.coords.imag) == self.sideLengths[1]/2] = True    # Top and bottom wall
 
         else:
             raise NotImplementedError(f'Domain shape \'{self.shape}\' not valid')
 
-        points = self.coordGrids[:,:,0][self.boundaryMask] + 1j * self.coordGrids[:,:,1][self.boundaryMask]
-        self._sortIdx_ = np.argsort(np.angle(points))
-        self.boundaryCurve = points[self._sortIdx_]
+        boundaryPoints = self.coords[self.boundaryMask]
+        self._sortIdx_ = np.argsort(np.angle(boundaryPoints))
+        self.boundaryCurve = boundaryPoints[self._sortIdx_]
 
         # Show boundary for debugging
         # import matplotlib.pyplot as plt
         # plt.figure()
-        # plt.imshow(domainMask)
+        # plt.imshow(self.domainMask.reshape(self.numCells+1))
         # plt.figure()
-        # plt.imshow(boundary)
+        # plt.imshow(self.boundaryMask.reshape(self.numCells+1))
         # plt.show()
 
 
@@ -334,9 +336,8 @@ class FlowField:
         - Solid boundaries are modelled using the method of images
         '''
 
-        # Intialise 3D arrays to store multiple meshgrids - one for the component effect of each vortex
-        uComps = np.zeros(np.append(self.coordGrids[:,:,0].shape, vortDefs.strengths.shape[0]))
-        vComps = uComps.copy()
+        # Intialise 3D array to store the velocity effect of each vortex - ie a stack of multiple lists of 2D vectors
+        velComps = np.zeros([self.coords.size, 2, vortDefs.strengths.shape[0]])
 
         # Dictionary mapping for functions - will be faster than multiple if/else statements - also more readable code
         vortexType = {'iso':self.__isoVortex__, 'lo':self.__loVortex__, 'solid':self.__solidVortex__}
@@ -346,34 +347,33 @@ class FlowField:
             # Get function for this vortex type
             func = vortexType.get(vortDefs.model)
             # Call vortex function to fill component arrays - with data for a single vortex
-            uComps[:,:,i], vComps[:,:,i] = func(vortDefs.getVortex(i))
+            velComps[:,:,i] = func(vortDefs.getVortex(i))
 
             # Calculate the effect of solid walls on this vortex using mirror image vortices
-            uComps[:,:,i], vComps[:,:,i] = self.__boundary__(vortDefs.getVortex(i), uComps[:,:,i], vComps[:,:,i], func)
+            velComps[:,:,i] = self.__boundary__(vortDefs.getVortex(i), velComps[:,:,i], func)
 
 
         # Collate effects of each vortex
-        U = np.sum(uComps,axis=2)
-        V = np.sum(vComps,axis=2)
+        vel_UV = np.sum(velComps,axis=2)
 
         # Add uniform axial velocity field? Or have some other equation for it
-        W = np.ones(U.shape)*axialVel
+        W = np.ones(vel_UV.shape[0])*axialVel
 
         # Stack velocity grids into multidimensional array
-        self.velGrids = np.dstack([U,V,W])
+        self.velocity = np.column_stack([vel_UV,W])
 
         # Get swirl angle
         self.getSwirl()
 
     
-    def __boundary__(self, vortData, uComp, vComp, vortexFunc):
+    def __boundary__(self, vortData, velComp, vortexFunc):
         '''
         Models the effect of a solid wall on a vortex using the Method of Images.
         Effect of these image vortices are superimposed onto the input arrays.
         - Internal function, should not be used outside core.py
         - WIP ---- RECTANGULAR BOUNDARY DOES NOT CURRENTLY WORK CORRECTLY
         - vortData - tuple produced by getVortex() function of Vortices class
-        - uComp, vComp - velocity field outputted by a vortex function
+        - velComp - velocity field outputted by a vortex function
         - vortexFunc - pointer to the correct vortex function depending on chosen model
         '''
 
@@ -401,12 +401,11 @@ class FlowField:
 
                 #print(f'image vortex @ {imageVortData[0]}, with strength {imageVortData[1]}')
 
-                # Get effect of image vortex on grid
-                uBoundary, vBoundary = vortexFunc(tuple(imageVortData))
+                # Get effect of image vortex on velocity field
+                velBoundary = vortexFunc(tuple(imageVortData))
 
                 # Superimpose effect
-                uComp += uBoundary
-                vComp += vBoundary
+                velComp += velBoundary
 
 
         elif self.shape == 'circle':
@@ -425,17 +424,16 @@ class FlowField:
 
             #print(f'image vortex @ {imageVortData[0]}, with strength {imageVortData[1]}')
 
-            # Get effect of image vortex on grid
-            uBoundary, vBoundary = vortexFunc(tuple(imageVortData))
+            # Get effect of image vortex on velocity field
+            velBoundary = vortexFunc(tuple(imageVortData))
 
             # Superimpose effect
-            uComp += uBoundary
-            vComp += vBoundary
+            velComp += velBoundary
             
         else:
-            raise NotImplementedError('Duct shape not valid')
+            raise NotImplementedError('Inlet shape not valid')
 
-        return uComp, vComp
+        return velComp
 
     
     def __isoVortex__(self, vortData):
@@ -445,14 +443,22 @@ class FlowField:
         - Internal function, should not be used outside core.py
         '''
 
+        # Initialise velocity array - list of 2D vectors
+        velComp = np.zeros([self.coords.size,2])
+
+        # Extract vortex centre coordinates into a complex number
+        vortO = vortData[0][0] + 1j * vortData[0][1]
+
+        # Displacement of each node from vortex centres
+        disp = self.coords - vortO
         # Get radius of each cell from centre of this vortex
-        r = np.sqrt((self.coordGrids[:,:,0]-vortData[0][0])**2 + (self.coordGrids[:,:,1] - vortData[0][1])**2)
+        r = np.abs(disp)
 
         # Velocity components due to this vortex
-        uComp = (vortData[1]/(2*np.pi)) * np.exp(0.5*(1-r**2)) * (self.coordGrids[:,:,1] - vortData[0][1])
-        vComp = (vortData[1]/(2*np.pi)) * np.exp(0.5*(1-r**2)) * (vortData[0][0] - self.coordGrids[:,:,0])
+        velComp[:,0] = (vortData[1]/(2*np.pi)) * np.exp(0.5*(1-r**2)) * disp.imag
+        velComp[:,1] = (vortData[1]/(2*np.pi)) * np.exp(0.5*(1-r**2)) * disp.real
 
-        return uComp, vComp
+        return velComp
 
     
     def __loVortex__(self, vortData):
@@ -463,23 +469,29 @@ class FlowField:
         - using equations given by Brandt (2009)
         '''
 
-        # Extract individual variables from stacked tuples and arrays for convenience
-        xc, yc = vortData[0]
+        # Initialise velocity array - list of 2D vectors
+        velComp = np.zeros([self.coords.size,2])
+
+        # Extract vortex centre coordinates into a complex number
+        vortO = vortData[0][0] + 1j * vortData[0][1]
+
+        # Extract other individual variables from the vortData tuple
         strength = vortData[1]
         a0 = vortData[2]
-        x, y = self.coordGrids[:,:,0], self.coordGrids[:,:,1]
 
-        # Get radius of each cell from centre of this vortex
-        rr = (x-xc)**2 + (y-yc)**2
+        # Displacement of each node from vortex centres
+        disp = self.coords - vortO
+        # Get radius squared of each cell from centre of this vortex
+        rr = np.abs(disp)**2
 
         # Get omega, the peak magnitude of vorticity (positive counterclockwise)
         omega = -strength/(np.pi * a0**2)
 
         # Velocity components due to this vortex
-        uComp = 0.5  * (a0**2 * omega * (y - yc) / rr) * (1 - np.exp(-rr/a0**2))
-        vComp = -0.5 * (a0**2 * omega * (x - xc) / rr) * (1 - np.exp(-rr/a0**2))
+        velComp[:,0] = 0.5  * (a0**2 * omega * disp.imag / rr) * (1 - np.exp(-rr/a0**2))
+        velComp[:,1] = -0.5 * (a0**2 * omega * disp.real / rr) * (1 - np.exp(-rr/a0**2))
 
-        return uComp, vComp
+        return velComp
 
     
     def __solidVortex__(self, vortData):
@@ -491,15 +503,23 @@ class FlowField:
         - solid/forced vortex - not realistic; ie instantaneously created vortex, no effect on cells outside it's radius
         '''
 
+        # Initialise velocity array - list of 2D vectors
+        velComp = np.zeros([self.coords.size,2])
+
+        # Extract vortex centre coordinates into a complex number
+        vortO = vortData[0][0] + 1j * vortData[0][1]
+
         # Get swirl angle and convert it to radians
         maxSwirlAngle = np.deg2rad(np.abs(vortData[1]))
 
         # Get vortex rotation information from sign of maximum angle specified
         anitclockwise = (True if vortData[1] > 0 else False)
 
+        # Displacement of each node from vortex centres
+        disp = self.coords - vortO
         # Get axial coordinates
-        r = np.sqrt((self.coordGrids[:,:,0]-vortData[0][0])**2 + (self.coordGrids[:,:,1] - vortData[0][1])**2)
-        theta = np.arctan(self.coordGrids[:,:,1]/self.coordGrids[:,:,0])
+        r = np.abs(disp)
+        theta = np.arctan(self.coords.imag/self.coords.real)
 
         # Normalise radius for straightforward angle calculation and set cells outside vortex size to 0
         rNorm = r/vortData[2]
@@ -510,7 +530,7 @@ class FlowField:
         swirlAngles = maxSwirlAngle*rNorm
 
         # Transform so swirl is coherent (either clockwise or anticlockwise) - without this, the swirl profile produced is mirrored about the y axis
-        swirlAngles[(np.nan_to_num(self.coordGrids[:,:,0] * anitclockwise) < 0)] = swirlAngles[(np.nan_to_num(self.coordGrids[:,:,0] * anitclockwise) < 0)] * -1
+        swirlAngles[(np.nan_to_num(self.coords.real * anitclockwise) < 0)] = swirlAngles[(np.nan_to_num(self.coords.real * anitclockwise) < 0)] * -1
 
         # Get tangential velocity at each cell
         tangentVel = vortData[3]*np.tan(swirlAngles)
@@ -519,10 +539,10 @@ class FlowField:
         theta_dot = tangentVel/r
 
         # Get velocity vector components, in-plane cartesian (assume no radial velocity)
-        uComp = -r*theta_dot*np.sin(theta)
-        vComp =  r*theta_dot*np.cos(theta)
+        velComp[:,0] = -r*theta_dot*np.sin(theta)
+        velComp[:,1] =  r*theta_dot*np.cos(theta)
 
-        return uComp, vComp
+        return velComp
 
 
     def checkBoundaries(self, tolerance=1e-6):
@@ -535,8 +555,10 @@ class FlowField:
 
         boundary_ok = True
 
-        # Get flattened list of velocities at the boundary, stored as complex numbers
-        vels   = self.velGrids[:,:,0][self.boundaryMask] + 1j * self.velGrids[:,:,1][self.boundaryMask]
+        # Get planar velocity vectors as complex numbers
+        vels   = self.velocity[:,0] + 1j * self.velocity[:,1]
+        # Get only the velocities of the nodes at the boundary
+        vels = vels[self.boundaryMask]
 
         # Sort data based on increasing phi polar coordinate
         sortedVels = vels[self._sortIdx_]
@@ -583,16 +605,16 @@ class FlowField:
         Calculate swirl angles of velocity field
         '''
 
-        # Get theta_dot - rate of chane of theta angle (rad/s)
-        theta_dot = (self.coordGrids[:,:,0]*self.velGrids[:,:,1] - self.velGrids[:,:,0]*self.coordGrids[:,:,1]) / (self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
         # Get radius
-        r = np.sqrt(self.coordGrids[:,:,0]**2 + self.coordGrids[:,:,1]**2)
+        r = np.abs(self.coords)
+        # Get theta_dot - rate of chane of theta angle (rad/s)
+        theta_dot = (self.coords.real*self.velocity[:,1] - self.velocity[:,0]*self.coords.imag) / r
 
         # Get tangential velocity
         velTheta = r*theta_dot
 
         # Get swirl angle - as defined in literature
-        swirlAngle = np.arctan(velTheta/self.velGrids[:,:,2])
+        swirlAngle = np.arctan(velTheta/self.velocity[:,2])
         # Convert to degrees
         self.swirlAngle = np.rad2deg(swirlAngle)
 
@@ -614,7 +636,7 @@ class FlowField:
         - so calling script does not need to import numpy just for this
         '''
 
-        np.savez(outputFile, velGrids=self.velGrids, rho=self.rho, pressure=self.pressure, swirl=self.swirlAngle)
+        np.savez(outputFile, velocity=self.velocity, rho=self.rho, pressure=self.pressure, swirl=self.swirlAngle)
 
 
     def load(self, file):
@@ -626,8 +648,8 @@ class FlowField:
         npzfile = np.load(file)
 
         # Check if correct format
-        if ('velGrids' in npzfile and 'rho' in npzfile and 'pressure' in npzfile and 'swirl' in npzfile):
-            self.velGrids    = npzfile['velGrids']
+        if ('velocity' in npzfile and 'rho' in npzfile and 'pressure' in npzfile and 'swirl' in npzfile):
+            self.velocity    = npzfile['velocity']
             self.rho         = npzfile['rho']
             self.pressure    = npzfile['pressure']
             self.swirlAngle  = npzfile['swirl']
@@ -645,7 +667,7 @@ class FlowField:
         newField = FlowField(self.sideLengths,self.numCells)
 
         # Copy all data so far
-        newField.velGrids   = self.velGrids
+        newField.velocity   = self.velocity
         newField.rho        = self.rho
         newField.pressure   = self.pressure
         newField.swirlAngle = self.swirlAngle

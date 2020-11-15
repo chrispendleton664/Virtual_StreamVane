@@ -22,9 +22,9 @@ def writeSU2(flowField: sg.FlowField, filename):
     - filename - filename to save boundary condition to, should include the .dat extension
     '''
 
-    # Flatten coordinate grids to get coordinates of every cell
-    x = np.reshape(flowField.coordGrids[:,:,0],[flowField.coordGrids[:,:,0].size,1])
-    y = np.reshape(flowField.coordGrids[:,:,1],[flowField.coordGrids[:,:,1].size,1])
+    # Extract x and y coordinates from list of complex coordinates
+    x = flowField.coords.real
+    y = flowField.coords.imag
 
     # Transform domain coordinates from 0,0 centered to match mesh
     x = x + flowField.sideLengths[0]/2
@@ -33,11 +33,8 @@ def writeSU2(flowField: sg.FlowField, filename):
     # Z coords at end of mesh
     z = np.zeros(np.shape(x))
 
-    # Flatten velocity grids to get velocity vector of every cell
-    u = np.reshape(flowField.velGrids[:,:,0],[flowField.velGrids[:,:,0].size,1])
-    v = np.reshape(flowField.velGrids[:,:,1],[flowField.velGrids[:,:,1].size,1])
-    w = np.reshape(flowField.velGrids[:,:,2],[flowField.velGrids[:,:,2].size,1])
-    velVec = np.column_stack((u,v,w))
+    # Extract velocity vector
+    velVec = flowField.velocity
 
     # Get velocity magnitude at each cell
     velMag = np.linalg.norm(velVec, axis=1)
