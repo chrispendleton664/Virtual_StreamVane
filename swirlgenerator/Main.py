@@ -1,7 +1,7 @@
 import core as sg
 import writeBC as bc
 import maketestdomain as domain
-import plots as post
+import post
 import sys
 
 
