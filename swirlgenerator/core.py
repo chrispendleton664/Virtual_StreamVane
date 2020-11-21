@@ -397,8 +397,8 @@ class FlowField:
 
         # Get radius
         r = np.abs(self.coords)
-        # Get theta_dot - rate of chane of theta angle (rad/s)
-        theta_dot = (self.coords.real*self.velocity[:,1] - self.velocity[:,0]*self.coords.imag) / r
+        # Get theta_dot - rate of change of theta angle (rad/s)
+        theta_dot = (self.coords.real*self.velocity[:,1] - self.velocity[:,0]*self.coords.imag) / r**2
 
         # Get tangential velocity
         velTheta = r*theta_dot
