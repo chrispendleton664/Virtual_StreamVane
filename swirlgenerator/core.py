@@ -89,6 +89,9 @@ class FlowField:
 
         # Store coordinates of inlet nodes
         self.coords = nodes
+        # Protection for division by zero so that warnings don't come up
+        self.coords.real[self.coords.real == 0] = 1e-32
+        self.coords.imag[self.coords.imag == 0] = 1e-32
 
         # Set boundaryCurve attribute - ie the nodes which make up the domain boundary
         self.__getBoundary__()
@@ -138,7 +141,7 @@ class FlowField:
         radius = np.abs(self.boundaryCurve)
         
         # Check if all points in the boundary are equally spaced from the centre - with a tolerance for numerical inaccuracy
-        self.isCircle = np.all(np.abs(radius - radius[0]) < 1e-15)
+        self.isCircle = np.all(np.abs(radius - radius[0]) < 1e-9)
 
 
     def computeDomain(self, vortDefs: Vortices, axialVel, density = None):
