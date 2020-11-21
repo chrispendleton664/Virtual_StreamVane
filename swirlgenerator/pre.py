@@ -16,8 +16,23 @@ class Input:
 
     def __init__(self, configfile):
         # Intiailise all possible variables first
+        # Metadata
         self.filename = None
         self.format = None
+        self.meshfilename = None
+
+        # Vortex definitions
+        self.vortModel = None
+        self.vortCoords = []
+        self.vortStrengths = []
+        self.vortRadius = []
+
+        # Extra parameters
+        self.axialVel = None
+        self.swirlPlotRange = [None,None]
+        self.swirlPlotNTicks = None
+
+        # Mesh generation parameters
         self.shape = None
         self.radius = None
         self.curveNumCells = None
@@ -28,12 +43,6 @@ class Input:
         self.xNumCells = None
         self.yNumCells = None
         self.zNumCells = None
-        self.vortModel = None
-        self.vortCoords = []
-        self.vortStrengths = []
-        self.vortRadius = []
-        self.axialVel = None
-        self.meshfilename = None
 
         # Read in the config file on initialisation of the object since it has no other functionality anyway
         self.read(configfile)
@@ -167,6 +176,14 @@ class Input:
             # May need better solution than this in future since will need a try/except pair for each optional config
             try:
                 self.axialVel = float(extraParams.get('axial_vel'))
+            except:
+                pass
+            try:
+                self.swirlPlotRange = list(float(numString) for numString in extraParams.get('swirl_contour_range')[1:-1].split(','))
+            except:
+                pass
+            try:
+                self.swirlPlotNTicks = int(extraParams.get('swirl_colorbar_num_ticks'))
             except:
                 pass
 

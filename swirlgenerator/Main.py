@@ -49,11 +49,11 @@ def main():
         # Save flow fields in pdf if requested - name the pdf the same as the boundary condition .dat file
         if options.saveplots:
             pdfname = options.configfile.split('.')[0]
-            plots.plotAll(f'{pdfname}.pdf')
+            plots.plotAll(pdfName=f'{pdfname}.pdf', swirlAxisRange=inputData.swirlPlotRange, swirlAxisNTicks=inputData.swirlPlotNTicks)
 
         # Show flow fields if requested
         if options.showFields:
-            plots.plotAll()
+            plots.plotAll(swirlAxisRange=inputData.swirlPlotRange, swirlAxisNTicks=inputData.swirlPlotNTicks)
 
 
 
