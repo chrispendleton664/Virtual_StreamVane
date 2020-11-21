@@ -42,7 +42,11 @@ class Input:
     def read(self, configFile):
         # Initialise config parser and read config file
         config = ConfigParser()
-        config.read(configFile)
+
+        try:
+            config.read(configFile)
+        except FileNotFoundError:
+            raise FileNotFoundError(f'{configFile} to read not found')
 
         # Check which sections are present
 
@@ -142,6 +146,11 @@ class Input:
                         self.vortCoords.append(data[0:2])
                         self.vortStrengths.append(data[2])
                         self.vortRadius.append(data[3])
+
+                    # Convert to numpy arrays
+                    self.vortCoords = np.array(self.vortCoords)
+                    self.vortStrengths = np.array(self.vortStrengths)
+                    self.vortRadius = np.array(self.vortRadius)
 
                 except ValueError:
                     raise ValueError(f"Invalid values defined for vortex parameters")

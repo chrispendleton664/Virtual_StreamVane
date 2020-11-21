@@ -22,22 +22,38 @@ density = 1.225         # ISA sea level condition - for incompressible
 class Vortices: 
     '''
     For storing and convenient querying of information about the vortices which have been defined for the domain
-    - Positive vortex strength is defined as anti-clockwise rotation
+    - model - mathematical model to use when describing the vortices
+    - centres - location of each vortex in the inlet
+    - strengths - strength of each vortex
+    - radius - core radius of each vortex
+    - axialVel - uniform axial velocity of the bulk flow
+    - inputObject - instance of Input object from swirlgenerator/pre.py which contains the above information,
+    is this is defined, other inputs are ignored
     '''
 
     # Object constructor accepts lists also for convenience, then later converts to numpy arrays
-    def __init__(self, model: int, centres: Union[list, np.ndarray], strengths: Union[list, np.ndarray],
-                       radius: Union[list, np.ndarray], axialVel: float):
+    def __init__(self, model: int = None, centres: Union[list, np.ndarray] = None, strengths: Union[list, np.ndarray] = None, radius: Union[list, np.ndarray] = None, 
+                        axialVel: float = None, inputObject: pre.Input = None):
 
-        self.numVortices    = len(strengths)
+        # Extract attributes from Input object if supplied
+        if inputObject is not None:
+            self.numVortices    = len(inputObject.vortStrengths)
+            self.model          = inputObject.vortModel           # Vortex type - which mathematical model to use for all the vortices in the domain
+            self.centres        = inputObject.vortCoords          # Vortex centre
+            self.strengths      = inputObject.vortStrengths       # Vortex strength
+            self.radius         = inputObject.vortRadius          # Vortex core radius - where the majority of vorticity is concentrated
+            self.axialVel       = inputObject.axialVel            # Uniform axial velocity - only needed for forced swirl type
+        
+        # Or take attributes from individual inputs
+        else:
+            self.numVortices    = len(strengths)
+            self.model          = model         # Vortex type - which mathematical model to use for all the vortices in the domain
+            self.axialVel       = axialVel                                                                        # Uniform axial velcoity - only needed for forced swirl type
+            # Make sure these are all numpy arrays not just lists
+            self.centres        = (centres      if isinstance(centres,np.ndarray)   else np.array(centres))       # Vortex centre
+            self.strengths      = (strengths    if isinstance(strengths,np.ndarray) else np.array(strengths))     # Vortex strength
+            self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex core radius - where the majority of vorticity is concentrated
 
-        self.model          = model         # Vortex type - which mathematical model to use for all the vortices in the domain
-
-        # Make sure these are all numpy arrays not just lists
-        self.centres        = (centres      if isinstance(centres,np.ndarray)   else np.array(centres))       # Vortex centre
-        self.strengths      = (strengths    if isinstance(strengths,np.ndarray) else np.array(strengths))     # Vortex strength
-        self.radius         = (radius       if isinstance(radius,np.ndarray)    else np.array(radius))        # Vortex core radius - where the majority of vorticity is concentrated
-        self.axialVel       = axialVel                                                                        # Uniform axial velcoity - only needed for forced swirl type
 
     # Return data for requested vortex as tuple
     def getVortex(self,vortexIndex):

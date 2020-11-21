@@ -31,7 +31,7 @@ def main():
         flowfield = sg.FlowField(inputData.getNodes())
 
         # Initialise domain configuration object with vortex definitions
-        vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths, inputData.vortRadius, inputData.axialVel)
+        vortexDefs = sg.Vortices(inputObject=inputData)
 
         # Calculate velocity field
         flowfield.computeDomain(vortexDefs, axialVel=inputData.axialVel)
