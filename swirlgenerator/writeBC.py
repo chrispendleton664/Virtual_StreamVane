@@ -10,6 +10,7 @@
 # -------------------------------------------------------------------------------------------------------------------
 
 import core as sg
+import pre
 import numpy as np
 
 
@@ -25,10 +26,6 @@ def writeSU2(flowField: sg.FlowField, filename):
     # Extract x and y coordinates from list of complex coordinates
     x = flowField.coords.real
     y = flowField.coords.imag
-
-    # Transform domain coordinates from 0,0 centered to match mesh
-    x = x + flowField.sideLengths[0]/2
-    y = y + flowField.sideLengths[1]/2
     
     # Z coords at end of mesh
     z = np.zeros(np.shape(x))
@@ -57,7 +54,7 @@ def writeSU2(flowField: sg.FlowField, filename):
         np.savetxt(f, boundaryConditions, fmt='%.6f')
 
 
-def writeInlet(InputObject: sg.Input, flowField: sg.FlowField):
+def writeInlet(InputObject: pre.Input, flowField: sg.FlowField):
     '''
     Wrapper function for calling the correct function to write the boundary condition in the requested format
     - InputObject - Input object which would contain the format to write the boundary condition in

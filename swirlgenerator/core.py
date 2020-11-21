@@ -7,7 +7,7 @@
 
 import numpy as np
 from typing import Union
-from configparser import ConfigParser
+import pre
 
 '''
 Heavy use of numpy for fast matrix and vector operations
@@ -51,279 +51,78 @@ class Vortices:
         return data 
 
 
-class Input:
-    '''
-    Class for reading and storing the information in the config file
-    - configfile - name of config file to read from when the object is initialised
-    - Full object is passed in and used in other core classes
-    '''
-
-    def __init__(self, configfile):
-        # Intiailise all possible variables first
-        self.filename = None
-        self.format = None
-        self.xSide = None
-        self.ySide = None
-        self.radius = None
-        self.zSide = None
-        self.shape = None
-        self.xNumCells = None
-        self.yNumCells = None
-        self.zNumCells = None
-        self.vortModel = None
-        self.vortCoords = []
-        self.vortStrengths = []
-        self.vortRadius = []
-        self.axialVel = None
-
-        # Read in the config file on initialisation of the object since it has no other functionality anyway
-        self.read(configfile)
-
-    def read(self, configFile):
-        # Initialise config parser and read config file
-        config = ConfigParser()
-        config.read(configFile)
-
-        # Check which sections are present
-
-        if ('METADATA' in config):
-            # Get section
-            metadata = config['METADATA']
-
-            # Supported formats 
-            formats = ['su2']
-
-            try:
-                self.filename = metadata.get('filename')
-                
-                format = metadata.get('format')
-                if (format in formats):
-                    self.format = format
-                else:
-                    raise NotImplementedError(f"{format} not supported")
-            except KeyError:
-                raise KeyError(f"Non-optional matadata missing in file {configFile}")
-
-        if ('MESH DEFINITION' in config):
-            # Get section
-            meshDefinitions = config['MESH DEFINITION']
-
-            # Get specified inlet shape
-            try:
-                self.shape = meshDefinitions.get('shape')
-            except:
-                raise KeyError("Shape of inlet face must be specified")
-
-            # Get necessary inputs for inlet shape
-            if self.shape == 'circle':
-                try:
-                    self.radius = float(meshDefinitions.get('radius'))
-                except KeyError:
-                    raise KeyError("Radius of circular inlet needs to be defined")
-                except ValueError:
-                    raise ValueError("Invalid value defined for inlet radius")
-            elif self.shape == 'rect':
-                try:
-                    self.xSide = float(meshDefinitions.get('x_side'))
-                    self.ySide = float(meshDefinitions.get('y_side'))
-                except KeyError:
-                    raise KeyError("Side lengths of rectangular inlet need to be defined")
-                except ValueError:
-                    raise ValueError("Invalid values defined for side lengths")
-            else:
-                raise NotImplementedError("Specified inlet shape not valid")
-
-            # Get mesh density
-            try:
-                self.xNumCells = int(meshDefinitions.get('x_num_cells'))
-                self.yNumCells = int(meshDefinitions.get('y_num_cells'))
-            except KeyError:
-                raise KeyError(f"Non-optional mesh parameters are missing in file {configFile}")
-            except ValueError:
-                raise ValueError(f"Invalid values defined for mesh parameters")
-
-            # Optional parameters
-            if ('z_side' in meshDefinitions):
-                self.zSide = float(meshDefinitions.get('z_side'))
-
-            if ('z_num_cells' in meshDefinitions):
-                self.zNumCells = int(meshDefinitions.get('z_num_cells'))
-
-        else:
-            raise ValueError(f"Non-optional mesh definitions section not present in file {configFile}")
-
-        if ('VORTEX DEFINITIONS' in config):
-            # Get section
-            vortexDefs = config['VORTEX DEFINITIONS']
-
-            # Get number of vortices defined
-            numVortices = sum(1 for key in vortexDefs) - 1
-
-            # Check present inputs
-            try:
-                self.vortModel = vortexDefs.get('vortex_model').lower()
-            except KeyError:
-                raise KeyError(f"Non-optional vortex parameters are missing in file {configFile}")
-
-            if (numVortices > 0):
-                try:
-                    # Extract the numeric data from the string for each vortex into an array
-                    for i in range(1,numVortices+1):
-                        data = list(float(numString) for numString in vortexDefs.get(f"vortex{i}")[1:-1].split(','))
-
-                        if (len(data) < 4):
-                            raise SyntaxError(f"Invalid number of parameters when defining vortex {i}")
-
-                        self.vortCoords.append(data[0:2])
-                        self.vortStrengths.append(data[2])
-                        self.vortRadius.append(data[3])
-
-                except ValueError:
-                    raise ValueError(f"Invalid values defined for vortex parameters")
-            else:
-                raise KeyError(f"At least one vortex needs to be defined in {configFile}")
-        else:
-            raise ValueError(f"Non-optional vortex definitions section not present in file {configFile}")
-
-        # Optional section
-        if ('EXTRA' in config):
-            # Get section
-            extraParams = config['EXTRA']
-
-            # May need better solution than this in future since will need a try/except pair for each optional config
-            try:
-                self.axialVel = float(extraParams.get('axial_vel'))
-            except:
-                pass
-
-        # Set defaults if values weren't set
-        self.axialVel   = (1.0 if self.axialVel is None else self.axialVel)
-
-
 class FlowField:
     '''
     Class containing data and functions relevant to the flow field
     - Initialised with an Input object
     '''
 
-    def __init__(self, InputData: Input):
-        # Get flow field descretisation descriptions from input object
-        self.shape = InputData.shape
-        self.radius = InputData.radius
-
-        if InputData.xSide is not None:
-            self.sideLengths = np.array([InputData.xSide, InputData.ySide])
-        else:
-            # If circular domain, still need side lengths for defining the grid
-            self.sideLengths = np.array([InputData.radius*2, InputData.radius*2])
-        
-        self.numCells = np.array([InputData.xNumCells, InputData.yNumCells])
-
+    def __init__(self, InputData: pre.Input):
         # Initialise the actual flow field variables
         self.velocity   = None
         self.rho        = None
         self.pressure   = None
 
-        # Initialise grid and domain variables
-        self.coords = None
-        self.axis = None
-        self.domainMask = None
-        self.boundaryMask = None
+        # Initialise domain variables
         self.boundaryCurve = None
         self._sortIdx_ = None
+        self.isCircle = False
 
         # Some comparison and metrics
         self.swirlAngle = None
 
-        # Side lengths of each cell - using np.divide here also serves to automatically convert python lists into numpy arrays
-        if self.shape == 'rect':
-            # For rectangular domain, simple calculation
-            self.cellSides = np.divide(self.sideLengths,self.numCells)
-        elif self.shape == 'circle':
-            # For circular domain, diameter (equal to grid side length) is used
-            self.cellSides = np.divide(self.radius*2,self.numCells)
-        else:
-            raise NotImplementedError('Invalid domain shape \'{self.shape}\'')
+        # Extract node coordinates from the inlet of the mesh file
+        self.coords = InputData.getNodes()
 
-        # Set coords and axis attributes
-        self.makeGrid()
+        # Set boundaryCurve attribute - ie the nodes which make up the domain boundary
+        self.__getBoundary__()
 
-        # Set domainMask and boundaryMask attributes
-        self.setDomain()
-
-        # Set cells outside domain to nan so that the flow field there is not unnecessarily calculated
-        self.coords[np.invert(self.domainMask)] = np.nan
-
-    
-    def makeGrid(self):
-        '''
-        Make meshgrids to store coordinate system
-        - As a result, all variable fields will be meshgrids also, good performance since using numpy matrix operations
-        - Also stores x and y axis ticks
-        - Stores coords of mesh nodes rather than cell centres
-        '''
-
-        # Create coordinate system from mesh info - domain is centered at 0, I think makes for more intuitive definition of vortex positions
-        x = np.linspace(-self.sideLengths[0]/2, self.sideLengths[0]/2, self.numCells[0]+1)
-        y = np.linspace(-self.sideLengths[1]/2, self.sideLengths[1]/2, self.numCells[1]+1)     
-
-        # Protection for division by zero later - better solution than this?
-        x[x == 0] = 1e-32
-        y[y == 0] = 1e-32
-
-        # Use meshgrid function to get the coordinates of all points
-        X, Y = np.meshgrid(x,y)
-
-        # Then flatten and store as a list of complex numbers
-        self.coords = X.flatten() + 1j * Y.flatten()
-
-        # Stack axis ticks
-        self.axis = np.vstack([x,y])
+        self.__checkIfCircle__()
 
 
-    def setDomain(self):
+    def __getBoundary__(self):
         ''' 
-        Create a mask to specify the domain shape and borders within the meshgrid.
-        Sets object attributes: domainMask, boundaryMask, boundaryCurve, _sortIdx_
-        - domainMask is true when cell is within the boundary
-        - boundaryMask is true when cell is at the boundary
+        Sets object attributes: boundaryCurve, _sortIdx_
+        - Internal function, should not be used in isolation outside core.py
+        - Uses the alpha shape algorithm to get the boundary nodes - from alphashape library
         - boundaryCurve stores the points (in order) which make up the boundary, as complex numbers
-        - _sortIdx_ is an internal attribute, index order to sort boundary cells
+        - _sortIdx_ is an internal attribute, index order to sort boundary cells, for connecting them correctly
         '''
 
-        if self.shape == 'circle':
-            # Radius of each cell from origin
-            radius = np.abs(self.coords)
+        # Do alphashape import here, not needed anywhere else
+        import alphashape
 
-            # Get domainMask using inequality - add buffer so that circular domain edges touch grid edges, since working with nodes rather than cell centres
-            self.domainMask = radius < self.radius + self.cellSides[0]/2
+        # Get points into array format
+        points = np.column_stack([self.coords.real, self.coords.imag])
 
-            # Get boundary using equality with a tolerance since discrete space
-            self.boundaryMask = abs(radius - self.radius) < self.cellSides[0]/2
+        # Use alpha shape to get the bounding curve 
+        # an alpha value of 0.1 performs well with nodes arranged in a circle or rectangle
+        # Basically just a small value over 0 seems to generalise well to simple shapes without ignoring the points on the sides of rectangle - since alpha=0 returns the convex hull
+        hull = alphashape.alphashape(points,alpha=0.1)
 
-        elif self.shape == 'rect':
-            # All cells are within boundary when rectangular domain shape
-            self.domainMask = np.ones(self.coords.shape, dtype=bool)
+        # Extract the actual coordinates into a numpy array
+        hull_pts = hull.boundary.coords.xy
+        hull_pts = np.array([hull_pts[0],hull_pts[1]])
 
-            # Boundary cells are simply those at the edges
-            self.boundaryMask = np.zeros(self.domainMask.shape, dtype=bool)
-            self.boundaryMask[abs(self.coords.real) == self.sideLengths[0]/2] = True    # Right and left wall
-            self.boundaryMask[abs(self.coords.imag) == self.sideLengths[1]/2] = True    # Top and bottom wall
+        # Put into complex format and assign into class attribute
+        self.boundaryCurve = hull_pts[0] + 1j * hull_pts[1]
 
-        else:
-            raise NotImplementedError(f'Domain shape \'{self.shape}\' not valid')
+        # Get indices of these points within the full coords array
+        self._sortIdx_ = [np.where(self.coords == point)[0][0] for point in self.boundaryCurve]
 
-        boundaryPoints = self.coords[self.boundaryMask]
-        self._sortIdx_ = np.argsort(np.angle(boundaryPoints))
-        self.boundaryCurve = boundaryPoints[self._sortIdx_]
 
-        # Show boundary for debugging
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.imshow(self.domainMask.reshape(self.numCells+1))
-        # plt.figure()
-        # plt.imshow(self.boundaryMask.reshape(self.numCells+1))
-        # plt.show()
+    def __checkIfCircle__(self):
+        '''
+        Method to check if the inlet face extracted from the mesh is circular
+        - Sets attribute isCircle
+        - Needed since solid boundary effect is only available for circular inlets using the method of images & circle theorem
+        '''
+
+        # Get radius of all points in the boundary curve
+        radius = np.abs(self.boundaryCurve)
+        
+        # Check if all points in the boundary are equally spaced from the centre - with a tolerance for numerical inaccuracy
+        self.isCircle = np.all(np.abs(radius - radius[0]) < 1e-15)
 
 
     def computeDomain(self, vortDefs: Vortices, axialVel, density = None):
@@ -371,51 +170,23 @@ class FlowField:
         Models the effect of a solid wall on a vortex using the Method of Images.
         Effect of these image vortices are superimposed onto the input arrays.
         - Internal function, should not be used outside core.py
-        - WIP ---- RECTANGULAR BOUNDARY DOES NOT CURRENTLY WORK CORRECTLY
+        - WIP ---- Only implemented for circular inlets
         - vortData - tuple produced by getVortex() function of Vortices class
         - velComp - velocity field outputted by a vortex function
         - vortexFunc - pointer to the correct vortex function depending on chosen model
         '''
 
-        if self.shape == 'rect':
-            # Get distance of vortex from walls - defined starting with bottom wall, going clockwise
-            vortXc, vortYc = vortData[0]
-            boundaryDist = [-self.sideLengths[1]/2-vortYc, -self.sideLengths[0]/2-vortXc, self.sideLengths[1]/2-vortYc, self.sideLengths[0]/2-vortXc]
-            boundaryDist = list(map(abs,boundaryDist))  # Magnitudes
-       
-            # Place image vortices outside the domain - such that the bounday conditions are met while keeping the total circulation of the unbounded domain equalt to 0
-            imageVortO = [[vortXc, vortYc-(2*boundaryDist[0])], 
-                          [vortXc-(2*boundaryDist[1]), vortYc], 
-                          [vortXc-(2*boundaryDist[1]), vortYc-(2*boundaryDist[0])],
-                          [vortXc, vortYc+(2*boundaryDist[1])],
-                          [vortXc, vortYc+(3*boundaryDist[1])],
-                          [vortXc+(2*boundaryDist[3]), vortYc],
-                          [vortXc+(3*boundaryDist[3]), vortYc]]
-            imageVortS = [-vortData[1],-vortData[1],vortData[1],-vortData[1],vortData[1],-vortData[1],vortData[1]]
-
-            for i in range(len(imageVortS)):
-                # Create new array for this image vortex to be passed on to the appropriate vortex model function
-                imageVortData = list(vortData)
-                imageVortData[0] = imageVortO[i]
-                imageVortData[1] = imageVortS[i]
-
-                #print(f'image vortex @ {imageVortData[0]}, with strength {imageVortData[1]}')
-
-                # Get effect of image vortex on velocity field
-                velBoundary = vortexFunc(tuple(imageVortData))
-
-                # Superimpose effect
-                velComp += velBoundary
-
-
-        elif self.shape == 'circle':
+        if self.isCircle:
             # Protection for division by zero
             vortData[0][vortData[0] == 0] = 1e-32   
+
+            # Get the radius of the inlet - maximum radius of nodes at boundary (should all be equal but just in case)
+            radius = np.amax(np.abs(self.boundaryCurve))
 
             # Vortex of opposite strength
             imageVortS = -vortData[1]
             # At the inverse point - according to circle theorem
-            imageVortO = (self.radius**2/(np.linalg.norm(vortData[0]))**2)*vortData[0]
+            imageVortO = (radius**2/(np.linalg.norm(vortData[0]))**2)*vortData[0]
 
             # Creating new vortex data list
             imageVortData = list(vortData)
@@ -431,8 +202,11 @@ class FlowField:
             velComp += velBoundary
             
         else:
-            raise NotImplementedError('Inlet shape not valid')
+            # Warn that vortices in non-circular inlets will not interact with the boundary
+            import warnings
 
+            warnings.warn("Effect of solid boundaries for non-circular inlets have not been implemented")
+            
         return velComp
 
     
@@ -557,10 +331,7 @@ class FlowField:
 
         # Get planar velocity vectors as complex numbers
         vels   = self.velocity[:,0] + 1j * self.velocity[:,1]
-        # Get only the velocities of the nodes at the boundary
-        vels = vels[self.boundaryMask]
-
-        # Sort data based on increasing phi polar coordinate
+        # Get the velocities of the nodes at the boundary
         sortedVels = vels[self._sortIdx_]
 
         # Calculate vectors which are parallel to the boundary curve
@@ -579,7 +350,7 @@ class FlowField:
             perpendicularVect[i] = vect.imag - 1j*vect.real
 
         # Now calculate the component of the velocity at each point, perpendicular to the boundary curve
-        velOut = np.abs(sortedVels)*np.dot(sortedVels,perpendicularVect)
+        velOut = np.array([vel*np.vdot(vel,perp) for vel,perp in zip(sortedVels,perpendicularVect)])
 
         # Integrate to get total flux through boundary
         fluxOut = np.sum(np.abs(velOut)*np.abs(parallelVect)/2)
@@ -589,12 +360,12 @@ class FlowField:
             boundary_ok = False
             print(f'Flux out of boundary: {fluxOut} units/sec')
 
+
         # import matplotlib.pyplot as plt
         # plt.figure()
         # plt.gca().set_aspect('equal', adjustable='box')
-        # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, parallelVect.real, parallelVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='blue')
-        # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, perpendicularVect.real, perpendicularVect.imag,units='dots', width=2,headwidth=5,headlength=5,headaxislength=2.5,color='red')
-        # plt.scatter(self.boundaryCurve.real, self.boundaryCurve.imag)
+        # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, velOut.real,velOut.imag,color='red')
+        # plt.quiver(self.boundaryCurve.real, self.boundaryCurve.imag, sortedVels.real,sortedVels.imag,color='blue')
         # plt.show()
             
         return boundary_ok
@@ -657,19 +428,3 @@ class FlowField:
         else:
             raise RuntimeError('File format/contents invalid - make sure this file was created by swirlGenerator.saveFigsToPdf')
 
-    
-    def copy(self):
-        '''
-        Utility function for copying this flow field into another separate object
-        '''
-
-        # Create new object
-        newField = FlowField(self.sideLengths,self.numCells)
-
-        # Copy all data so far
-        newField.velocity   = self.velocity
-        newField.rho        = self.rho
-        newField.pressure   = self.pressure
-        newField.swirlAngle = self.swirlAngle
-
-        return newField
