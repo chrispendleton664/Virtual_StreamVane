@@ -54,10 +54,10 @@ class Vortices:
 class FlowField:
     '''
     Class containing data and functions relevant to the flow field
-    - Initialised with an Input object
+    - nodes - numpy array of the 2D coordinates of the inlet nodes (dtype=complex)
     '''
 
-    def __init__(self, InputData: pre.Input):
+    def __init__(self, nodes: np.ndarray):
         # Initialise the actual flow field variables
         self.velocity   = None
         self.rho        = None
@@ -71,8 +71,8 @@ class FlowField:
         # Some comparison and metrics
         self.swirlAngle = None
 
-        # Extract node coordinates from the inlet of the mesh file
-        self.coords = InputData.getNodes()
+        # Store coordinates of inlet nodes
+        self.coords = nodes
 
         # Set boundaryCurve attribute - ie the nodes which make up the domain boundary
         self.__getBoundary__()

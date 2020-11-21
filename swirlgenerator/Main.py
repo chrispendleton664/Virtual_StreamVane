@@ -28,7 +28,7 @@ def main():
                 domain.testDomain(inputData, inputData.meshfilename, options.showmesh)
 
         # Intialise flow field object with coordinate system
-        flowfield = sg.FlowField(inputData)
+        flowfield = sg.FlowField(inputData.getNodes())
 
         # Initialise domain configuration object with vortex definitions
         vortexDefs = sg.Vortices(inputData.vortModel, inputData.vortCoords, inputData.vortStrengths, inputData.vortRadius, inputData.axialVel)
