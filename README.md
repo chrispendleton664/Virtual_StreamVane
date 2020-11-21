@@ -28,4 +28,5 @@ A sort of image recognition capability for receiving contour plots of flow field
 ## Dependencies
 - Numpy
 - Matplotlib
+- Scipy - only for interpolation of irregularly spaced data into a regular grid in plotting functions
 - gmsh - only for creating a test mesh with maketestdomain.py
