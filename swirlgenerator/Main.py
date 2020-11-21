@@ -78,8 +78,8 @@ class Options:
             print('Options:')
             print('-checkboundaries         Runs the function which checks if the boundary conditions have been satisfied')
             print('-show                    Shows the plots of the flow fields in separate windows')
-            print('-saveplots [filename]    Saves the plots into a pdf file')
-            print('-makemesh [filename]     Creates a meshed empty domain which is compatible with the generated inlet boundary condition defined by the config')
+            print('-saveplots               Saves the plots into a pdf file with the same name as the config file')
+            print('-makemesh                Creates a meshed empty domain with the parameters defined in the config file')
             print('-showmesh                Renders the mesh using GMSH GUI - beware this can be very slow with large meshes')
 
         else:
