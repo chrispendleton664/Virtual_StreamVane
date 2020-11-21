@@ -1,5 +1,5 @@
-python ..\..\..\swirlgenerator bulk_swirl.config -saveplots bulk_swirl.pdf -checkboundaries
-python ..\..\..\swirlgenerator twin_swirl.config -saveplots twin_swirl.pdf -checkboundaries
-python ..\..\..\swirlgenerator offset_swirl_1.config -saveplots offset_swirl_1.pdf -checkboundaries
-python ..\..\..\swirlgenerator offset_swirl_2.config -saveplots offset_swirl_2.pdf -checkboundaries
+python ..\..\..\swirlgenerator\Main.py bulk_swirl.config -saveplots -checkboundaries -makemesh -showmesh
+python ..\..\..\swirlgenerator\Main.py twin_swirl.config -saveplots -checkboundaries -makemesh -showmesh
+python ..\..\..\swirlgenerator\Main.py offset_swirl_1.config -saveplots -checkboundaries
+python ..\..\..\swirlgenerator\Main.py offset_swirl_2.config -saveplots -checkboundaries
 PAUSE
