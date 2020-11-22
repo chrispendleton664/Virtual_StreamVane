@@ -1,0 +1,4 @@
+bulk_swirl= (0,20)
+twin_swirl= (-20,20)
+offset_swirl_1= (-20,20)
+offset_swirl_2= (-20,20)
